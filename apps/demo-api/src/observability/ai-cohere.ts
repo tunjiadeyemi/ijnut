@@ -3,10 +3,22 @@
  */
 import type { ChatMessage } from "./ai-types";
 
-const DEFAULT_MODEL = "command-r-plus";
+const DEFAULT_MODEL = "command-a-03-2025";
+
+/** Retired aliases (removed Sept 15, 2025) → current default. */
+const RETIRED_MODELS = new Set([
+  "command-r-plus",
+  "command-r-plus-04-2024",
+  "command-r",
+  "command-r-03-2024",
+  "command",
+  "command-light",
+]);
 
 function resolveModel(): string {
-  return process.env.COHERE_MODEL?.trim() || DEFAULT_MODEL;
+  const raw = process.env.COHERE_MODEL?.trim() || DEFAULT_MODEL;
+  if (RETIRED_MODELS.has(raw)) return DEFAULT_MODEL;
+  return raw;
 }
 
 export function cohereApiKey(): string | undefined {

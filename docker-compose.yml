@@ -63,7 +63,7 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       COHERE_API_KEY: ${COHERE_API_KEY:-}
       CO_API_KEY: ${CO_API_KEY:-}
-      COHERE_MODEL: ${COHERE_MODEL:-command-r-plus}
+      COHERE_MODEL: ${COHERE_MODEL:-command-a-03-2025}
       BACHS_SECRET_KEY: ${BACHS_SECRET_KEY:-}
       BACHS_API_KEY: ${BACHS_API_KEY:-}
       BACHS_PRODUCT_ID: ${BACHS_PRODUCT_ID:-}
