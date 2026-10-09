@@ -12,8 +12,8 @@ COPY apps/demo-api apps/demo-api
 COPY apps/dashboard/package.json apps/dashboard/
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm --filter @api-obs/observability build \
- && pnpm --filter demo-api build
+# turbo ^build ensures @api-obs/observability dist exists (gitignored; not in the image context)
+RUN pnpm exec turbo run build --filter=demo-api
 
 FROM base AS runner
 ENV NODE_ENV=production

@@ -1,0 +1,122 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.runStress = runStress;
+const autocannon = require("autocannon");
+const node_crypto_1 = require("node:crypto");
+const stress_allowlist_1 = require("./stress-allowlist");
+function joinUrl(base, path) {
+    const p = path.startsWith("/") ? path : `/${path}`;
+    return new URL(p, base).toString();
+}
+/**
+ * Embedded autocannon runner. Fine for portfolio; isolate in prod
+ * so load generation doesn't contend with the API process CPU.
+ */
+async function runStress(body, store, options) {
+    const base = (0, stress_allowlist_1.assertTargetAllowed)(body.target, options.allowlist);
+    const method = (body.method ?? "GET").toUpperCase();
+    const url = joinUrl(base, body.path);
+    const rawConnections = body.connections ?? 10;
+    if (!Number.isFinite(rawConnections) ||
+        rawConnections < 1 ||
+        !Number.isInteger(rawConnections)) {
+        throw new Error("connections must be an integer >= 1");
+    }
+    const connections = Math.min(rawConnections, options.maxConnections);
+    const durationSec = body.durationSec ?? null;
+    const amount = body.amount ?? null;
+    if (durationSec == null && amount == null) {
+        throw new Error("Provide durationSec or amount");
+    }
+    if (durationSec != null) {
+        if (!Number.isFinite(durationSec) || durationSec < 1) {
+            throw new Error("durationSec must be >= 1");
+        }
+        if (durationSec > options.maxDurationSec) {
+            throw new Error(`durationSec capped at ${options.maxDurationSec}`);
+        }
+    }
+    if (amount != null && amount > options.maxAmount) {
+        throw new Error(`amount capped at ${options.maxAmount}`);
+    }
+    const startedAt = new Date().toISOString();
+    const id = `stress_${(0, node_crypto_1.randomUUID)().slice(0, 8)}`;
+    const headers = { ...(body.headers ?? {}) };
+    const payload = typeof body.body === "string" && body.body.trim().length > 0
+        ? body.body
+        : undefined;
+    if (payload &&
+        !Object.keys(headers).some((k) => k.toLowerCase() === "content-type")) {
+        headers["content-type"] = "application/json";
+    }
+    const result = await new Promise((resolve, reject) => {
+        const instance = autocannon({
+            url,
+            method: method,
+            headers,
+            body: payload,
+            connections,
+            duration: durationSec ?? undefined,
+            amount: amount ?? undefined,
+            timeout: 10,
+        }, (err, res) => {
+            if (err)
+                reject(err);
+            else
+                resolve(res);
+        });
+        // Ensure the promise settles if autocannon emits errors
+        instance.on("error", reject);
+    });
+    const finishedAt = new Date().toISOString();
+    const statusCodes = {};
+    for (const [code, count] of Object.entries(result.statusCodeStats ?? {})) {
+        const n = typeof count === "number"
+            ? count
+            : (count.count ?? 0);
+        statusCodes[code] = n;
+    }
+    // Don't treat 3xx (e.g. shortener 302) as errors — only transport failures + 4xx/5xx
+    let httpErrors = 0;
+    for (const [code, n] of Object.entries(statusCodes)) {
+        const c = Number(code);
+        if (c >= 400)
+            httpErrors += n;
+    }
+    const errors = (result.errors ?? 0) + (result.timeouts ?? 0) + httpErrors;
+    // Infer route key from method + path pattern hint (caller path as-is)
+    const routeKeyGuess = `${method} ${body.path.includes(":") ? body.path : body.path}`;
+    // Prefer normalized shortener pattern when path looks like a code
+    const snapshotKey = method === "GET" && /^\/[A-Za-z0-9_-]{4,16}$/.test(body.path)
+        ? "GET /:code"
+        : routeKeyGuess;
+    // @types/autocannon Histogram omits p95; runtime autocannon includes it
+    const latency = result.latency;
+    const report = {
+        id,
+        requestsPerSec: result.requests?.average ?? 0,
+        p50ms: latency?.p50 ?? 0,
+        p95ms: latency?.p95 ?? latency?.p90 ?? 0,
+        p99ms: latency?.p99 ?? 0,
+        errors,
+        statusCodes: Object.keys(statusCodes).length > 0
+            ? statusCodes
+            : summarizeStatusBands(result),
+        startedAt,
+        finishedAt,
+        routeSnapshot: store.snapshotRoute(snapshotKey),
+    };
+    store.addStressReport(report);
+    return { report };
+}
+function summarizeStatusBands(result) {
+    const out = {};
+    const bands = ["1xx", "2xx", "3xx", "4xx", "5xx"];
+    for (const b of bands) {
+        const n = result[b];
+        if (typeof n === "number" && n > 0)
+            out[b] = n;
+    }
+    return out;
+}
+//# sourceMappingURL=stress.js.map
