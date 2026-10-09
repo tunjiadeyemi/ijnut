@@ -18,6 +18,7 @@ import {
   runStress,
   type StressRequestBody,
 } from "@api-obs/observability";
+import { isGithubAuthConfigured } from "../auth/auth";
 import { AdminAuthGuard } from "./admin-auth.guard";
 import { AiService, type AiChatBody } from "./ai.service";
 import { METRICS_STORE } from "./metrics.token";
@@ -34,6 +35,13 @@ export class ObservabilityController {
   @Get("health")
   health() {
     return { ok: true, service: "observability" };
+  }
+
+  /** Auth feature flags for the dashboard BFF (no secrets). */
+  @Get("auth/config")
+  @UseGuards(AdminAuthGuard)
+  authConfig() {
+    return { githubConfigured: isGithubAuthConfigured() };
   }
 
   @Get("overview")

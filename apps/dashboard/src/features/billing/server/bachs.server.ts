@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 
-import { getAuthPool } from '@/features/auth/server/db';
+import { obsFetch } from '@/shared/api/client.server';
 
 loadEnv({ path: resolve(process.cwd(), '../../.env') });
 loadEnv({ path: resolve(process.cwd(), '.env') });
@@ -134,54 +134,31 @@ export async function setUserBilling(opts: {
   nextCustomerId?: string | null;
   nextSubscriptionId?: string | null;
 }): Promise<void> {
-  const pool = getAuthPool();
-
-  if (opts.userId) {
-    await pool.query(
-      `UPDATE "user"
-       SET plan = $2,
-           "bachsCustomerId" = COALESCE($3, "bachsCustomerId"),
-           "bachsSubscriptionId" = COALESCE($4, "bachsSubscriptionId"),
-           "updatedAt" = NOW()
-       WHERE id = $1`,
-      [
-        opts.userId,
-        opts.plan,
-        opts.nextCustomerId ?? null,
-        opts.nextSubscriptionId ?? null
-      ]
-    );
-    return;
-  }
-
-  if (opts.customerId) {
-    await pool.query(
-      `UPDATE "user"
-       SET plan = $2,
-           "bachsSubscriptionId" = COALESCE($3, "bachsSubscriptionId"),
-           "updatedAt" = NOW()
-       WHERE "bachsCustomerId" = $1`,
-      [opts.customerId, opts.plan, opts.nextSubscriptionId ?? null]
-    );
-  }
+  await obsFetch('/observability/billing/apply', {
+    method: 'POST',
+    body: JSON.stringify(opts)
+  });
 }
 
 export async function getBillingIds(userId: string): Promise<{
   customerId: string | null;
   subscriptionId: string | null;
 }> {
-  const pool = getAuthPool();
-  const result = await pool.query<{
-    bachsCustomerId: string | null;
-    bachsSubscriptionId: string | null;
-  }>(
-    `SELECT "bachsCustomerId", "bachsSubscriptionId" FROM "user" WHERE id = $1`,
-    [userId]
-  );
-  const row = result.rows[0];
+  // userId is implied by the session token on the API; keep arg for call-site clarity.
+  void userId;
+  const { getSession } = await import('@/features/auth/server/session.server');
+  const session = await getSession();
+  const token = session?.session?.token;
+  const result = await obsFetch<{
+    authenticated: boolean;
+    customerId: string | null;
+    subscriptionId: string | null;
+  }>('/observability/billing/me', {
+    headers: token ? { 'X-Ijnut-Session-Token': token } : {}
+  });
   return {
-    customerId: row?.bachsCustomerId ?? null,
-    subscriptionId: row?.bachsSubscriptionId ?? null
+    customerId: result.customerId,
+    subscriptionId: result.subscriptionId
   };
 }
 

@@ -1,16 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { auth } from '@/features/auth/server/auth';
+import { proxyAuthRequest } from '@/features/auth/server/proxy-auth.server';
 
 export const Route = createFileRoute('/api/auth/$')({
   server: {
     handlers: {
-      GET: async ({ request }: { request: Request }) => {
-        return await auth.handler(request);
-      },
-      POST: async ({ request }: { request: Request }) => {
-        return await auth.handler(request);
-      }
+      GET: async ({ request }: { request: Request }) => proxyAuthRequest(request),
+      POST: async ({ request }: { request: Request }) => proxyAuthRequest(request),
+      PUT: async ({ request }: { request: Request }) => proxyAuthRequest(request),
+      PATCH: async ({ request }: { request: Request }) => proxyAuthRequest(request),
+      DELETE: async ({ request }: { request: Request }) => proxyAuthRequest(request)
     }
   }
 });

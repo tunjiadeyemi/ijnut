@@ -1,9 +1,10 @@
 import { createServerFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
 
+import { getApiUrl } from '@/shared/api/client.server';
+
 /**
- * Auth state for UI. plan / aiRemaining are computed on the server from the
- * session + DB — never taken from client input.
+ * Auth state for UI. plan / aiRemaining come from the API — never client input.
  */
 export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => {
   const {
@@ -15,9 +16,17 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 
   const session = await getSession();
   const access = await resolveAiAccess(session);
-  const githubConfigured = Boolean(
-    process.env.GITHUB_CLIENT_ID?.trim() && process.env.GITHUB_CLIENT_SECRET?.trim()
-  );
+
+  let githubConfigured = Boolean(process.env.GITHUB_CLIENT_ID?.trim());
+  try {
+    const { obsFetch } = await import('@/shared/api/client.server');
+    const cfg = await obsFetch<{ githubConfigured: boolean }>(
+      '/observability/auth/config'
+    );
+    githubConfigured = cfg.githubConfigured;
+  } catch {
+    // fall back to local env hint
+  }
 
   return {
     authenticated: access.authenticated,
@@ -34,10 +43,21 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 });
 
 export const logout = createServerFn({ method: 'POST' }).handler(async () => {
-  const { auth } = await import('./server/auth');
   try {
     const request = getRequest();
-    await auth.api.signOut({ headers: request.headers });
+    const cookie = request.headers.get('cookie') ?? '';
+    await fetch(`${getApiUrl()}/api/auth/sign-out`, {
+      method: 'POST',
+      headers: {
+        cookie,
+        origin:
+          process.env.BETTER_AUTH_URL?.trim() ||
+          process.env.IJNUT_PUBLIC_DASHBOARD_URL?.trim() ||
+          'http://127.0.0.1:3001',
+        'content-type': 'application/json'
+      },
+      body: '{}'
+    });
   } catch {
     // already signed out
   }

@@ -4,9 +4,10 @@ import { DemoController } from "./demo.controller";
 import { ObservabilityModule } from "./observability/observability.module";
 import { ObservabilityMiddleware } from "./observability/observability.middleware";
 import { ShortenerModule } from "./shortener/shortener.module";
+import { BillingModule } from "./billing/billing.module";
 
 @Module({
-  imports: [ObservabilityModule, ShortenerModule],
+  imports: [ObservabilityModule, ShortenerModule, BillingModule],
   controllers: [HealthController, DemoController],
 })
 export class AppModule implements NestModule {

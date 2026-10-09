@@ -1,7 +1,9 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
 import { NestFactory } from "@nestjs/core";
+import { ExpressAdapter } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
+import { auth } from "./auth/auth";
 
 // Local monorepo .env only — never override Compose/Railway-injected vars.
 config({
@@ -10,8 +12,27 @@ config({
 });
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.enableCors({ origin: true });
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const express = require("express") as typeof import("express");
+  const { toNodeHandler } = await import("better-auth/node");
+
+  const server = express();
+
+  // Auth first — before any JSON body parser (OAuth + sign-in bodies).
+  const authHandler = toNodeHandler(auth);
+  server.all("/api/auth/*", authHandler);
+  server.use("/api/auth", authHandler);
+
+  server.use(express.json({ limit: "2mb" }));
+  server.use(express.urlencoded({ extended: true }));
+
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+    bodyParser: false,
+  });
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);

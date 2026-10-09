@@ -50,6 +50,16 @@ services:
       STRESS_RATE_LIMIT_PER_MIN: ${STRESS_RATE_LIMIT_PER_MIN:-1}
       DEMO_USER_API_KEY: ${DEMO_USER_API_KEY:-demo-user}
       SHORTEN_RATE_LIMIT_PER_MIN: ${SHORTEN_RATE_LIMIT_PER_MIN:-10}
+      # Auth + AI live on the API
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-ijnut-auth-secret-32chars}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,26 +93,16 @@ services:
       IJNUT_PLAN: ${IJNUT_PLAN:-free}
       IJNUT_AI_FREE_LIMIT: ${IJNUT_AI_FREE_LIMIT:-3}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_obs
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-ijnut-auth-secret-32chars}
+      # BFF only — auth/Gemini/DB are on api
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      RESEND_FROM: ${RESEND_FROM:-}
       BACHS_SECRET_KEY: ${BACHS_SECRET_KEY:-}
       BACHS_PRODUCT_ID: ${BACHS_PRODUCT_ID:-}
       BACHS_WEBHOOK_SECRET: ${BACHS_WEBHOOK_SECRET:-}
       OBSERVABILITY_API_URL: http://api:3000
       IJNUT_PUBLIC_API_URL: ${IJNUT_PUBLIC_API_URL:-http://localhost:3000}
       OBSERVABILITY_ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     depends_on:
       api:
-        condition: service_healthy
-      postgres:
         condition: service_healthy
 
 volumes:

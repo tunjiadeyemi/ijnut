@@ -1,6 +1,5 @@
 /**
- * Server-only session + AI authorization.
- * plan / aiRemaining are derived from the DB — never from client input.
+ * Session + AI access via the API (no dashboard → Postgres).
  */
 import { getRequest } from '@tanstack/react-start/server';
 
@@ -10,14 +9,29 @@ import {
   getIjnutPlan,
   type IjnutPlan
 } from '@/features/config/server';
-import { auth, type AuthSession } from './auth';
-import { getAuthPool } from './db';
+import { getApiUrl, obsFetch } from '@/shared/api/client.server';
 
 export type PublicUser = {
   id: string;
   name: string;
   email: string;
   image?: string | null;
+};
+
+export type AuthSession = {
+  session: {
+    token: string;
+    userId: string;
+    expiresAt: string | Date;
+  };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string | null;
+    plan?: string | null;
+    aiUsed?: number | null;
+  };
 };
 
 export type AiAccess = {
@@ -31,43 +45,35 @@ export type AiAccess = {
   canConsume: boolean;
 };
 
-function userPlan(raw: unknown): IjnutPlan {
-  return raw === 'pro' ? 'pro' : 'free';
-}
-
-function userAiUsed(raw: unknown): number {
-  const n = typeof raw === 'number' ? raw : Number(raw);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
-}
-
 export async function getSession(): Promise<AuthSession | null> {
   try {
     const request = getRequest();
-    const session = await auth.api.getSession({ headers: request.headers });
-    return session;
+    const cookie = request.headers.get('cookie');
+    if (!cookie) return null;
+
+    const res = await fetch(`${getApiUrl()}/api/auth/get-session`, {
+      method: 'GET',
+      headers: {
+        cookie,
+        accept: 'application/json',
+        origin:
+          process.env.BETTER_AUTH_URL?.trim() ||
+          process.env.IJNUT_PUBLIC_DASHBOARD_URL?.trim() ||
+          'http://127.0.0.1:3001'
+      }
+    });
+
+    if (!res.ok) return null;
+    const body = (await res.json()) as AuthSession | null;
+    if (!body?.session?.token || !body?.user?.id) return null;
+    return body;
   } catch {
     return null;
   }
 }
 
-async function loadUserQuota(
-  userId: string
-): Promise<{ plan: IjnutPlan; aiUsed: number }> {
-  const pool = getAuthPool();
-  const result = await pool.query<{ plan: string | null; aiUsed: number | null }>(
-    `SELECT plan, "aiUsed" FROM "user" WHERE id = $1`,
-    [userId]
-  );
-  const row = result.rows[0];
-  return {
-    plan: userPlan(row?.plan),
-    aiUsed: userAiUsed(row?.aiUsed)
-  };
-}
-
 /**
- * Authoritative AI access from env + DB.
- * Ignores any client-supplied plan/remaining and does not trust stale session fields.
+ * Authoritative AI access from the API (same rules as Gemini gate).
  */
 export async function resolveAiAccess(
   session: AuthSession | null
@@ -75,7 +81,6 @@ export async function resolveAiAccess(
   const mode = getIjnutMode();
   const envPlan = getIjnutPlan();
 
-  // Self-host / deployment-wide pro: unlimited (BYO key).
   if (mode === 'selfhost' || envPlan === 'pro') {
     return {
       authenticated: Boolean(session?.user),
@@ -89,10 +94,47 @@ export async function resolveAiAccess(
     };
   }
 
-  if (!session?.user) {
+  try {
+    const status = await obsFetch<{
+      authenticated: boolean;
+      needsAuth: boolean;
+      plan: IjnutPlan;
+      aiUsed: number;
+      limit: number | null;
+      remaining: number | null;
+      gated: boolean;
+    }>('/observability/ai/status', {
+      headers: session?.session?.token
+        ? { 'X-Ijnut-Session-Token': session.session.token }
+        : {}
+    });
+
     return {
-      authenticated: false,
-      needsAuth: true,
+      authenticated: status.authenticated,
+      needsAuth: status.needsAuth,
+      plan: status.plan,
+      aiUsed: status.aiUsed,
+      limit: status.limit,
+      remaining: status.remaining,
+      gated: status.gated,
+      canConsume: !status.needsAuth && (status.plan === 'pro' || (status.remaining ?? 0) > 0)
+    };
+  } catch {
+    if (!session?.user) {
+      return {
+        authenticated: false,
+        needsAuth: true,
+        plan: 'free',
+        aiUsed: 0,
+        limit: getAiFreeLimit(),
+        remaining: 0,
+        gated: true,
+        canConsume: false
+      };
+    }
+    return {
+      authenticated: true,
+      needsAuth: false,
       plan: 'free',
       aiUsed: 0,
       limit: getAiFreeLimit(),
@@ -101,65 +143,6 @@ export async function resolveAiAccess(
       canConsume: false
     };
   }
-
-  const { plan, aiUsed } = await loadUserQuota(session.user.id);
-
-  if (plan === 'pro') {
-    return {
-      authenticated: true,
-      needsAuth: false,
-      plan: 'pro',
-      aiUsed,
-      limit: null,
-      remaining: null,
-      gated: false,
-      canConsume: true
-    };
-  }
-
-  const limit = getAiFreeLimit();
-  const remaining = Math.max(0, limit - aiUsed);
-
-  return {
-    authenticated: true,
-    needsAuth: false,
-    plan: 'free',
-    aiUsed,
-    limit,
-    remaining,
-    gated: true,
-    canConsume: remaining > 0
-  };
-}
-
-/**
- * Atomically consume one free AI message. Returns null if denied / exhausted.
- * Enforces limit in SQL so concurrent requests cannot overspend.
- */
-export async function consumeAiMessage(
-  userId: string,
-  limit: number
-): Promise<{ aiUsed: number; remaining: number } | null> {
-  const pool = getAuthPool();
-  const result = await pool.query<{ aiUsed: number }>(
-    `UPDATE "user"
-     SET "aiUsed" = COALESCE("aiUsed", 0) + 1, "updatedAt" = NOW()
-     WHERE id = $1
-       AND COALESCE(plan, 'free') <> 'pro'
-       AND COALESCE("aiUsed", 0) < $2
-     RETURNING "aiUsed"`,
-    [userId, limit]
-  );
-
-  if (result.rowCount !== 1 || !result.rows[0]) {
-    return null;
-  }
-
-  const aiUsed = Number(result.rows[0].aiUsed);
-  return {
-    aiUsed,
-    remaining: Math.max(0, limit - aiUsed)
-  };
 }
 
 export function toPublicUser(session: AuthSession | null): PublicUser | null {

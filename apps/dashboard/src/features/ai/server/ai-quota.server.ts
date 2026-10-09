@@ -1,9 +1,7 @@
 /**
- * AI quota is authorized only via session.server (DB-backed).
- * This module re-exports the access helpers used by AI server fns.
+ * AI quota is authorized on demo-api. Dashboard helpers re-export session access.
  */
 export {
-  consumeAiMessage,
   getSession,
   resolveAiAccess,
   type AiAccess
