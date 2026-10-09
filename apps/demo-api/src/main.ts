@@ -18,9 +18,8 @@ async function bootstrap() {
   const server = express();
 
   // Auth first — before any JSON body parser (OAuth + sign-in bodies).
-  const authHandler = toNodeHandler(auth);
-  server.all("/api/auth/*", authHandler);
-  server.use("/api/auth", authHandler);
+  // Mount as middleware (no Express 5 `*` path syntax).
+  server.use("/api/auth", toNodeHandler(auth));
 
   server.use(express.json({ limit: "2mb" }));
   server.use(express.urlencoded({ extended: true }));
