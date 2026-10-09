@@ -1,10 +1,16 @@
-import { Eraser, Loader2, LogOut, RefreshCw, Telescope } from 'lucide-react';
+import { Eraser, Loader2, LogIn, LogOut, RefreshCw, Telescope } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 import type { OverviewResponse, RequestRecord, StressReport } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { HoverIconLabel } from '@/shared/components/HoverIconLabel';
 import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { AgentReportCopyButton } from '@/features/ai/components/AgentReportPanel';
+
+type AuthSummary = {
+  authenticated: boolean;
+  user: { name: string; email: string } | null;
+};
 
 type Props = {
   overview: OverviewResponse;
@@ -14,6 +20,7 @@ type Props = {
   autoRefresh: boolean;
   busy: boolean;
   clearDisabled: boolean;
+  auth: AuthSummary;
   onAutoRefreshChange: (checked: boolean) => void;
   onRefresh: () => void;
   onClear: () => void;
@@ -28,6 +35,7 @@ export function DashboardHeader({
   autoRefresh,
   busy,
   clearDisabled,
+  auth,
   onAutoRefreshChange,
   onRefresh,
   onClear,
@@ -86,16 +94,26 @@ export function DashboardHeader({
             <Eraser className="size-3.5 shrink-0" />
             <HoverIconLabel>Clear</HoverIconLabel>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="group h-8 px-2"
-            aria-label="Log out"
-            onClick={onLogout}
-          >
-            <LogOut className="size-3.5 shrink-0" />
-            <HoverIconLabel>Log out</HoverIconLabel>
-          </Button>
+          {auth.authenticated ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="group h-8 px-2"
+              aria-label="Log out"
+              title={auth.user?.email}
+              onClick={onLogout}
+            >
+              <LogOut className="size-3.5 shrink-0" />
+              <HoverIconLabel>Log out</HoverIconLabel>
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" className="group h-8 px-2" asChild>
+              <Link to="/login" aria-label="Sign in">
+                <LogIn className="size-3.5 shrink-0" />
+                <HoverIconLabel>Sign in</HoverIconLabel>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

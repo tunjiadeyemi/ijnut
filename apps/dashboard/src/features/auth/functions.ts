@@ -1,43 +1,45 @@
 import { createServerFn } from '@tanstack/react-start';
-import { deleteCookie, setCookie } from '@tanstack/react-start/server';
-import { ADMIN_COOKIE, getSessionToken, validateAdminToken } from '@/shared/api/client.server';
-
-export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => ({
-  authenticated: Boolean(getSessionToken())
-}));
+import { getRequest } from '@tanstack/react-start/server';
 
 /**
- * Validate key against demo-api (401 if wrong), then set httpOnly cookie.
- * Key is never returned to the client in JSON — only stored as cookie.
+ * Auth state for UI. plan / aiRemaining are computed on the server from the
+ * session + DB — never taken from client input.
  */
-export const loginWithAdminKey = createServerFn({ method: 'POST' })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-    const token = data.token?.trim();
-    if (!token) {
-      return { ok: false as const, message: 'Please enter your admin password' };
-    }
+export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => {
+  const {
+    getSession,
+    resolveAiAccess,
+    toPublicUser
+  } = await import('./server/session.server');
+  const { getIjnutMode } = await import('@/features/config/server');
 
-    const valid = await validateAdminToken(token);
-    if (!valid) {
-      return {
-        ok: false as const,
-        message: 'Wrong password. Check ADMIN_TOKEN in your .env file.'
-      };
-    }
+  const session = await getSession();
+  const access = await resolveAiAccess(session);
+  const githubConfigured = Boolean(
+    process.env.GITHUB_CLIENT_ID?.trim() && process.env.GITHUB_CLIENT_SECRET?.trim()
+  );
 
-    setCookie(ADMIN_COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-      secure: process.env.COOKIE_SECURE === 'true'
-    });
-
-    return { ok: true as const };
-  });
+  return {
+    authenticated: access.authenticated,
+    user: toPublicUser(session),
+    mode: getIjnutMode(),
+    plan: access.plan,
+    aiUsed: access.aiUsed,
+    aiLimit: access.limit,
+    aiRemaining: access.remaining,
+    needsAuth: access.needsAuth,
+    gated: access.gated,
+    githubConfigured
+  };
+});
 
 export const logout = createServerFn({ method: 'POST' }).handler(async () => {
-  deleteCookie(ADMIN_COOKIE, { path: '/' });
+  const { auth } = await import('./server/auth');
+  try {
+    const request = getRequest();
+    await auth.api.signOut({ headers: request.headers });
+  } catch {
+    // already signed out
+  }
   return { ok: true as const };
 });

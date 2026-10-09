@@ -12,7 +12,7 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 | **IJNUT Cloud** (optional) | Dashboard only → operator’s hosted API | Operator — free tier is **gated**; upgrade or self-host when limited |
 | **Cloud pro** | Same hosted API with `IJNUT_PLAN=pro` | Operator (paid later; flag unlocks limits today) |
 
-Core metrics, login, and the shortener stay available on free Cloud. **Gemini chat** and aggressive **stress** are what get limited — those are the cost drivers.
+Core metrics and the shortener stay available on free Cloud (guests welcome). **Gemini chat** and aggressive **stress** are what get limited — those are the cost drivers.
 
 ## Features
 
@@ -21,11 +21,12 @@ Core metrics, login, and the shortener stay available on free Cloud. **Gemini ch
 - `GET /observability/overview` & `/requests` behind admin auth
 - `POST /observability/stress` with **allowlist**, **caps**, and **rate limit (429)**
 - Demo URL shortener: Postgres source of truth, Redis cache, `X-Cache: HIT|MISS|BYPASS`
-- Dashboard login: admin key → validated by demo-api → httpOnly cookie (BFF)
+- Dashboard open to guests; optional **better-auth** (email/password + GitHub + password reset)
+- BFF uses server `OBSERVABILITY_ADMIN_TOKEN` for `/observability/*` (never paste admin key in the UI)
 - Demo / Live base URL, custom methods, headers, body; calm 100svh metrics UI
 - Optional **Gemini chat** (explain requests, summarize load tests, suggest fixes)
 - **Agent report** — markdown snapshot you can copy into Cursor / any coding agent
-- Cloud free: daily AI quota + stricter stress defaults; CTA to upgrade or self-host
+- Cloud free: **3 lifetime AI messages** after sign-in, then dim panel + subscribe CTA; self-host unlimited with BYO Gemini
 
 ## Monorepo layout
 
@@ -52,12 +53,13 @@ docker compose up --build
 | Demo API  | http://localhost:3000 |
 | Health    | http://localhost:3000/health |
 
-Login with `ADMIN_TOKEN` (default `change-me`).
+Open the dashboard as a guest. Sign in (email or GitHub) only if you want Cloud AI. Obs API still uses `ADMIN_TOKEN` on the server BFF (default `change-me`).
 
 ```bash
 pnpm docker:down
 pnpm docker:stack              # compose up -d --build
 pnpm docker:up                 # Postgres + Redis only (for local pnpm dev)
+pnpm --filter dashboard auth:migrate   # better-auth tables (once)
 ```
 
 ### Local apps (infra in Docker)
@@ -85,9 +87,9 @@ cp .env.example .env
 pnpm --filter dashboard dev
 ```
 
-Login with the demo admin token the operator publishes. Metrics/login/shortener work; AI hits a **daily cap**; stress is rate-limited — upgrade (`IJNUT_PLAN=pro` on the host) or self-host with your own Gemini key.
+Open the hosted dashboard as a guest (metrics/stress/agent report). Sign in for **3 free AI messages**, then subscribe CTA (or self-host with your own Gemini key). Stress stays rate-limited on free Cloud.
 
-**Host operators:** set `IJNUT_MODE=cloud`, keep `STRESS_ALLOWLIST` tight (only your public host), low `STRESS_RATE_LIMIT_PER_MIN`, and set `GEMINI_API_KEY` on the dashboard service. Until you deploy, the open-source path is self-host only — no VPS required for contributors.
+**Host operators:** set `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, GitHub OAuth secrets, keep `STRESS_ALLOWLIST` tight, and set `GEMINI_API_KEY` on the dashboard. Until you deploy, the open-source path is self-host only — no VPS required for contributors.
 
 ## Smoke checks (self-host)
 
@@ -132,25 +134,29 @@ See [`.env.example`](./.env.example). Important ones:
 |----------|---------|
 | `IJNUT_MODE` | `selfhost` (default) or `cloud` |
 | `IJNUT_PLAN` | `free` or `pro` (cloud AI/stress limits) |
-| `IJNUT_AI_DAILY_LIMIT` | Cloud free Gemini chats per UTC day (default `5`) |
+| `IJNUT_AI_FREE_LIMIT` | Lifetime free Gemini chats per signed-in Cloud user (default `3`) |
 | `IJNUT_PUBLIC_API_URL` | Public API URL for Demo stress targets |
-| `ADMIN_TOKEN` | Protects `/observability/*` |
+| `ADMIN_TOKEN` / `OBSERVABILITY_ADMIN_TOKEN` | Protects `/observability/*` (server BFF only) |
 | `OBSERVABILITY_API_URL` | Dashboard → API base URL (`http://api:3000` in Compose) |
-| `DATABASE_URL` | Postgres (host port **5433** when using infra-only compose) |
+| `DATABASE_URL` | Postgres for shortener + better-auth (host port **5433** with infra-only compose) |
+| `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` | Auth crypto + public dashboard URL |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Optional GitHub OAuth |
+| `RESEND_API_KEY` | Optional password-reset email (else link is logged) |
 | `REDIS_URL` | Redis for redirect cache |
 | `STRESS_ALLOWLIST` | Hosts stress may target |
 | `STRESS_MAX_CONNECTIONS` / `STRESS_MAX_DURATION_SEC` | Safety caps (cloud free defaults lower if unset) |
 | `GEMINI_API_KEY` | AI chat (self-host: yours; cloud: operator’s, gated) |
 | `COOKIE_SECURE` | Set `true` only behind HTTPS |
 
-**Never** put the admin token in `VITE_*` / public client env.
+**Never** put the admin token or auth secrets in `VITE_*` / public client env. `plan` / `aiRemaining` are authorized on the server only.
 
 ## Demo tips
 
-1. Dashboard → login with `ADMIN_TOKEN` → create a short code, warm Redis, run stress → hit vs miss ([`RESULTS.md`](./RESULTS.md)).
+1. Dashboard (guest) → create a short code via Demo API, warm Redis, run stress → hit vs miss ([`RESULTS.md`](./RESULTS.md)).
 2. Stress twice quickly → **429** (and Cloud free shows upgrade/self-host CTA).
-3. `DELETE /shorten/:code` with `x-api-key: demo-user` → **403**; missing key → **401**.
-4. **Agent report** → copy into Cursor and ask for a bottleneck write-up.
+3. Cloud: sign in → 3 AI messages → panel dims with subscribe CTA.
+4. `DELETE /shorten/:code` with `x-api-key: demo-user` → **403**; missing key → **401**.
+5. **Agent report** → copy into Cursor and ask for a bottleneck write-up.
 
 ## Tradeoffs (v1)
 
@@ -159,7 +165,7 @@ See [`.env.example`](./.env.example). Important ones:
 3. **Route normalization** is required or cardinality explodes.
 4. **Admin token** stays server-side in the dashboard BFF.
 5. Stress **allowlist** + caps prevent open-proxy abuse (this is not a public load gun).
-6. Cloud AI quota is **in-process** (resets on restart / not shared across replicas yet).
+6. Cloud AI quota is **per-user in Postgres** (`aiUsed`); env `IJNUT_PLAN=pro` or user `plan=pro` unlocks AI (Stripe later).
 
 ## Scripts
 

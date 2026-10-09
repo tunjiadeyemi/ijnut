@@ -1,4 +1,3 @@
-import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import {
@@ -33,10 +32,10 @@ export type DashboardLoaderData = {
   requests: { requests: RequestRecord[] };
   stress: { reports: StressReport[] };
   config: Awaited<ReturnType<typeof getDashboardConfig>>;
+  auth: Awaited<ReturnType<typeof import('@/features/auth/functions').getAuthState>>;
 };
 
 export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
-  const navigate = useNavigate();
   const toast = useToast();
   const demoApiBase = initial.config.publicApiUrl;
 
@@ -129,7 +128,7 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
 
   async function onLogout() {
     await logout();
-    await navigate({ to: '/login' });
+    window.location.assign('/');
   }
 
   async function onClearHistory() {
@@ -156,6 +155,12 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
         autoRefresh={autoRefresh}
         busy={running || pending}
         clearDisabled={running}
+        auth={{
+          authenticated: initial.auth.authenticated,
+          user: initial.auth.user
+            ? { name: initial.auth.user.name, email: initial.auth.user.email }
+            : null
+        }}
         onAutoRefreshChange={setAutoRefresh}
         onRefresh={() =>
           startTransition(() => {

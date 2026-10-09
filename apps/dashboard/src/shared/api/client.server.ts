@@ -1,41 +1,34 @@
 /**
- * Server-only BFF helpers. Admin token never goes to the browser bundle.
- * Prefer session cookie from login gate; never expose via VITE_*.
+ * Server-only BFF helpers. Obs API uses operator ADMIN_TOKEN from env —
+ * guests and logged-in users both load metrics without pasting a key.
  */
 
 import { resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
-import { getCookie } from '@tanstack/react-start/server';
 
 loadEnv({ path: resolve(process.cwd(), '../../.env') });
 loadEnv({ path: resolve(process.cwd(), '.env') });
-
-export const ADMIN_COOKIE = 'obs_admin_token';
 
 export function getApiUrl(): string {
   return (process.env.OBSERVABILITY_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
 }
 
-/** Token from httpOnly login cookie only (gate UI). */
-export function getSessionToken(): string | undefined {
-  return getCookie(ADMIN_COOKIE);
-}
-
-export async function validateAdminToken(token: string): Promise<boolean> {
-  const res = await fetch(`${getApiUrl()}/observability/overview`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`
-    }
-  });
-  return res.ok;
+/** Server-only token for /observability/* — never from the browser. */
+export function getObsAdminToken(): string | undefined {
+  return (
+    process.env.OBSERVABILITY_ADMIN_TOKEN?.trim() ||
+    process.env.ADMIN_TOKEN?.trim() ||
+    undefined
+  );
 }
 
 export async function obsFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getSessionToken();
+  const token = getObsAdminToken();
   if (!token) {
-    const err = new Error('Not authenticated') as Error & { status?: number };
-    err.status = 401;
+    const err = new Error(
+      'OBSERVABILITY_ADMIN_TOKEN (or ADMIN_TOKEN) is not configured on the server'
+    ) as Error & { status?: number };
+    err.status = 500;
     throw err;
   }
 

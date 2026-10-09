@@ -6,25 +6,28 @@ import type {
   RequestRecord,
   StressReport
 } from '@/shared/api/types';
-import { getSessionToken, obsFetch } from '@/shared/api/client.server';
+import { obsFetch } from '@/shared/api/client.server';
 
 export type { AiChatInput, AiChatTurn } from '@/shared/api/types';
 
 export const getAiStatus = createServerFn({ method: 'GET' }).handler(async () => {
   const { isGeminiConfigured } = await import('./server/gemini.server');
-  const { DEFAULT_GATE_CTA, getAiDailyLimit, getIjnutMode, getIjnutPlan, isAiGated } =
-    await import('@/features/config/server');
-  const { getQuotaSnapshot } = await import('./server/ai-quota.server');
-  const subject = getSessionToken() ?? 'anon';
-  const quota = getQuotaSnapshot(subject);
-  const limit = getAiDailyLimit();
+  const { DEFAULT_GATE_CTA, getIjnutMode } = await import('@/features/config/server');
+  const { getSession, resolveAiAccess } = await import('./server/ai-quota.server');
+
+  const session = await getSession();
+  const access = await resolveAiAccess(session);
+
   return {
     configured: isGeminiConfigured(),
     mode: getIjnutMode(),
-    plan: getIjnutPlan(),
-    gated: isAiGated(),
-    limit: Number.isFinite(limit) ? limit : null,
-    remaining: Number.isFinite(quota.remaining) ? quota.remaining : null,
+    authenticated: access.authenticated,
+    needsAuth: access.needsAuth,
+    plan: access.plan,
+    gated: access.gated,
+    limit: access.limit,
+    remaining: access.remaining,
+    aiUsed: access.aiUsed,
     cta: { ...DEFAULT_GATE_CTA }
   };
 });
@@ -34,17 +37,30 @@ export const askObservabilityAi = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     try {
       const { AI_SYSTEM_PROMPT, chatWithGemini } = await import('./server/gemini.server');
-      const { DEFAULT_GATE_CTA } = await import('@/features/config/server');
-      const { canConsumeAi, consumeAi, getQuotaSnapshot } =
+      const { DEFAULT_GATE_CTA, getAiFreeLimit } = await import('@/features/config/server');
+      const { consumeAiMessage, getSession, resolveAiAccess } =
         await import('./server/ai-quota.server');
 
-      const subject = getSessionToken() ?? 'anon';
-      if (!canConsumeAi(subject)) {
-        const quota = getQuotaSnapshot(subject);
+      // Authorize from DB only — ignore any client plan/remaining claims.
+      const session = await getSession();
+      const access = await resolveAiAccess(session);
+
+      if (!access.canConsume) {
+        if (access.needsAuth) {
+          return {
+            ok: false as const,
+            gated: true as const,
+            needsAuth: true as const,
+            message: 'Sign in to use AI on IJNUT Cloud (3 free messages).',
+            cta: { ...DEFAULT_GATE_CTA },
+            remaining: 0
+          };
+        }
         return {
           ok: false as const,
           gated: true as const,
-          message: `Free Cloud AI limit reached (${quota.limit}/day). Upgrade or self-host with your own Gemini key.`,
+          needsAuth: false as const,
+          message: `Free AI limit reached (${access.limit} messages). Subscribe or self-host with your own Gemini key.`,
           cta: { ...DEFAULT_GATE_CTA },
           remaining: 0
         };
@@ -101,11 +117,26 @@ export const askObservabilityAi = createServerFn({ method: 'POST' })
         { role: 'user', content: data.message }
       ]);
 
-      const quota = consumeAi(subject);
+      let remaining = access.remaining;
+      if (access.gated && access.plan === 'free' && session?.user) {
+        const consumed = await consumeAiMessage(session.user.id, getAiFreeLimit());
+        if (!consumed) {
+          return {
+            ok: false as const,
+            gated: true as const,
+            needsAuth: false as const,
+            message: `Free AI limit reached (${access.limit} messages). Subscribe or self-host with your own Gemini key.`,
+            cta: { ...DEFAULT_GATE_CTA },
+            remaining: 0
+          };
+        }
+        remaining = consumed.remaining;
+      }
+
       return {
         ok: true as const,
         reply,
-        remaining: Number.isFinite(quota.remaining) ? quota.remaining : null
+        remaining
       };
     } catch (err) {
       return {

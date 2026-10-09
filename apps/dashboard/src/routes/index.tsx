@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 
 import { getAuthState } from '@/features/auth/functions';
 import { getDashboardConfig } from '@/features/config/functions';
@@ -9,20 +9,15 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage';
 
 export const Route = createFileRoute('/')({
   component: DashboardRoute,
-  beforeLoad: async () => {
-    const { authenticated } = await getAuthState();
-    if (!authenticated) {
-      throw redirect({ to: '/login' });
-    }
-  },
   loader: async () => {
-    const [overview, requests, stress, config] = await Promise.all([
+    const [overview, requests, stress, config, auth] = await Promise.all([
       fetchOverview(),
       fetchRequests({ data: { limit: 40 } }),
       fetchStressReports(),
-      getDashboardConfig()
+      getDashboardConfig(),
+      getAuthState()
     ]);
-    return { overview, requests, stress, config };
+    return { overview, requests, stress, config, auth };
   }
 });
 

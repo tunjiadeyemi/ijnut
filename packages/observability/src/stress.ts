@@ -33,10 +33,15 @@ export async function runStress(
   const method = (body.method ?? "GET").toUpperCase();
   const url = joinUrl(base, body.path);
 
-  const connections = Math.min(
-    Math.max(body.connections ?? 10, 1),
-    options.maxConnections,
-  );
+  const rawConnections = body.connections ?? 10;
+  if (
+    !Number.isFinite(rawConnections) ||
+    rawConnections < 1 ||
+    !Number.isInteger(rawConnections)
+  ) {
+    throw new Error("connections must be an integer >= 1");
+  }
+  const connections = Math.min(rawConnections, options.maxConnections);
 
   const durationSec = body.durationSec ?? null;
   const amount = body.amount ?? null;
@@ -45,8 +50,13 @@ export async function runStress(
     throw new Error("Provide durationSec or amount");
   }
 
-  if (durationSec != null && durationSec > options.maxDurationSec) {
-    throw new Error(`durationSec capped at ${options.maxDurationSec}`);
+  if (durationSec != null) {
+    if (!Number.isFinite(durationSec) || durationSec < 1) {
+      throw new Error("durationSec must be >= 1");
+    }
+    if (durationSec > options.maxDurationSec) {
+      throw new Error(`durationSec capped at ${options.maxDurationSec}`);
+    }
   }
   if (amount != null && amount > options.maxAmount) {
     throw new Error(`amount capped at ${options.maxAmount}`);

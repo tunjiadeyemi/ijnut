@@ -80,8 +80,15 @@ services:
       NODE_ENV: production
       IJNUT_MODE: ${IJNUT_MODE:-selfhost}
       IJNUT_PLAN: ${IJNUT_PLAN:-free}
-      IJNUT_AI_DAILY_LIMIT: ${IJNUT_AI_DAILY_LIMIT:-5}
+      IJNUT_AI_FREE_LIMIT: ${IJNUT_AI_FREE_LIMIT:-3}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_obs
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-ijnut-auth-secret-32chars}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
       OBSERVABILITY_API_URL: http://api:3000
       IJNUT_PUBLIC_API_URL: ${IJNUT_PUBLIC_API_URL:-http://localhost:3000}
       OBSERVABILITY_ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
@@ -90,6 +97,8 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     depends_on:
       api:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
 volumes:

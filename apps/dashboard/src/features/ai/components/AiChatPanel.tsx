@@ -31,9 +31,11 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     void getAiStatus()
       .then((s) => {
         setStatus(s);
-        if (s.gated && s.remaining === 0) {
+        if (s.needsAuth) {
+          setGateMessage(s.cta.signIn);
+        } else if (s.gated && s.remaining === 0) {
           setGateMessage(
-            `Free Cloud AI limit reached (${s.limit}/day). Upgrade or self-host with your own Gemini key.`
+            `Free AI limit reached (${s.limit} messages). Subscribe or self-host with your own Gemini key.`
           );
         }
       })
@@ -41,14 +43,18 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         setStatus({
           configured: false,
           mode: 'selfhost',
+          authenticated: false,
+          needsAuth: false,
           plan: 'free',
           gated: false,
           limit: null,
           remaining: null,
+          aiUsed: 0,
           cta: {
-            upgrade: 'Unlock higher AI and stress limits on IJNUT Cloud (set IJNUT_PLAN=pro).',
+            upgrade: 'Subscribe on IJNUT Cloud for unlimited AI.',
             selfHost:
-              'Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.'
+              'Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.',
+            signIn: 'Sign in to unlock 3 free AI messages on Cloud.'
           }
         })
       );
@@ -58,20 +64,19 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pending]);
 
+  const locked =
+    Boolean(status?.needsAuth) ||
+    Boolean(status?.gated && status.remaining === 0);
+
   async function send(
     message: string,
     intent: 'chat' | 'explain_request' | 'summarize_stress' | 'suggest_fixes' = 'chat'
   ) {
     const trimmed = message.trim();
-    if (!trimmed || pending) return;
+    if (!trimmed || pending || locked) return;
 
     if (status?.configured === false) {
       toast.error('Add GEMINI_API_KEY to .env', 'AI off');
-      return;
-    }
-
-    if (gateMessage && status?.gated && status.remaining === 0) {
-      toast.error('AI daily limit reached', 'Upgrade or self-host');
       return;
     }
 
@@ -95,9 +100,19 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         if ('gated' in result && result.gated) {
           setGateMessage(result.message);
           setStatus((prev) =>
-            prev ? { ...prev, remaining: 0, cta: result.cta ?? prev.cta } : prev
+            prev
+              ? {
+                  ...prev,
+                  remaining: 0,
+                  needsAuth: 'needsAuth' in result ? Boolean(result.needsAuth) : prev.needsAuth,
+                  cta: result.cta ?? prev.cta
+                }
+              : prev
           );
-          toast.error('AI limit reached', 'Upgrade or self-host');
+          toast.error(
+            'needsAuth' in result && result.needsAuth ? 'Sign in required' : 'AI limit reached',
+            'needsAuth' in result && result.needsAuth ? 'Cloud AI' : 'Upgrade or self-host'
+          );
           setMessages((prev) => [...prev, { role: 'assistant', content: result.message }]);
           return;
         }
@@ -110,7 +125,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         setStatus((prev) => (prev ? { ...prev, remaining: result.remaining } : prev));
         if (result.remaining === 0 && status?.gated) {
           setGateMessage(
-            `Free Cloud AI limit reached (${status.limit}/day). Upgrade or self-host with your own Gemini key.`
+            `Free AI limit reached (${status.limit} messages). Subscribe or self-host with your own Gemini key.`
           );
         }
       }
@@ -125,10 +140,12 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
 
   const configured = status?.configured;
   const remainingLabel =
-    status?.gated && status.remaining != null ? `${status.remaining} left today` : null;
+    status?.gated && status.remaining != null
+      ? `${status.remaining} free left`
+      : null;
 
   return (
-    <Card className="flex h-full min-h-[18rem] flex-col border-0 bg-transparent shadow-none lg:min-h-0">
+    <Card className="relative flex h-full min-h-[18rem] flex-col border-0 bg-transparent shadow-none lg:min-h-0">
       <CardHeader className="flex flex-col gap-2 space-y-0 border-b border-border px-0 pb-3 pt-0 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <Bot className="text-primary size-4" />
@@ -143,7 +160,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             size="sm"
             variant="ghost"
             className="group h-8 px-2"
-            disabled={pending || !latestRequest}
+            disabled={pending || locked || !latestRequest}
             aria-label="Explain"
             onClick={() =>
               void send(
@@ -160,7 +177,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             size="sm"
             variant="ghost"
             className="group h-8 px-2"
-            disabled={pending || !latestStress}
+            disabled={pending || locked || !latestStress}
             aria-label="Summarize load"
             onClick={() =>
               void send('Summarize the latest load test in plain language.', 'summarize_stress')
@@ -174,7 +191,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             size="sm"
             variant="ghost"
             className="group h-8 px-2"
-            disabled={pending}
+            disabled={pending || locked}
             aria-label="Suggest fixes"
             onClick={() =>
               void send('Based on current metrics, what should I fix first?', 'suggest_fixes')
@@ -185,64 +202,82 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 px-0 pb-0">
+      <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 px-0 pb-0">
         {configured === false ? (
           <p className="text-muted-foreground text-xs">Set GEMINI_API_KEY</p>
         ) : null}
 
-        {gateMessage && status?.cta ? <UpgradeGate message={gateMessage} cta={status.cta} /> : null}
+        <div
+          className={
+            locked
+              ? 'pointer-events-none flex min-h-0 flex-1 flex-col gap-3 opacity-50'
+              : 'flex min-h-0 flex-1 flex-col gap-3'
+          }
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+            {messages.length === 0 && !pending ? (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                Ask about a slow route…
+              </p>
+            ) : null}
+            {messages.map((m, i) => (
+              <div
+                key={`${m.role}-${i}`}
+                className={
+                  m.role === 'user'
+                    ? 'ml-6 rounded-2xl bg-primary/10 px-3 py-2 text-sm'
+                    : 'text-foreground/90 mr-4 text-sm leading-relaxed'
+                }
+              >
+                <div className="break-words whitespace-pre-wrap">{m.content}</div>
+              </div>
+            ))}
+            {pending ? (
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                <Loader2 className="size-3.5 animate-spin" />
+              </div>
+            ) : null}
+            <div ref={bottomRef} />
+          </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-          {messages.length === 0 && !pending ? (
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              Ask about a slow route…
-            </p>
-          ) : null}
-          {messages.map((m, i) => (
-            <div
-              key={`${m.role}-${i}`}
-              className={
-                m.role === 'user'
-                  ? 'ml-6 rounded-2xl bg-primary/10 px-3 py-2 text-sm'
-                  : 'text-foreground/90 mr-4 text-sm leading-relaxed'
-              }
+          <form
+            className="flex shrink-0 gap-2 border-t pt-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(input, 'chat');
+            }}
+          >
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Message"
+              disabled={pending || locked}
+              className="min-w-0 border-0 bg-transparent shadow-none focus-visible:ring-0"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              className="shrink-0"
+              disabled={pending || locked || !input.trim()}
+              aria-label="Send"
             >
-              <div className="break-words whitespace-pre-wrap">{m.content}</div>
-            </div>
-          ))}
-          {pending ? (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Loader2 className="size-3.5 animate-spin" />
-            </div>
-          ) : null}
-          <div ref={bottomRef} />
+              <Send className="size-4" />
+            </Button>
+          </form>
         </div>
 
-        <form
-          className="flex shrink-0 gap-2 border-t pt-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send(input, 'chat');
-          }}
-        >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Message"
-            disabled={pending}
-            className="min-w-0 border-0 bg-transparent shadow-none focus-visible:ring-0"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            variant="ghost"
-            className="shrink-0"
-            disabled={pending || !input.trim()}
-            aria-label="Send"
-          >
-            <Send className="size-4" />
-          </Button>
-        </form>
+        {locked && gateMessage && status?.cta ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center p-3">
+            <UpgradeGate
+              className="max-w-sm w-full"
+              title={status.needsAuth ? 'Sign in for AI' : 'Free AI used up'}
+              message={gateMessage}
+              cta={status.cta}
+              needsAuth={status.needsAuth}
+            />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
