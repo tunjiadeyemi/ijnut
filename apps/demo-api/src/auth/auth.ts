@@ -49,11 +49,31 @@ const githubId = process.env.GITHUB_CLIENT_ID?.trim();
 const githubSecret = process.env.GITHUB_CLIENT_SECRET?.trim();
 const dashboardOrigin = authBaseUrl();
 
+const trustedOrigins = Array.from(
+  new Set(
+    [
+      dashboardOrigin,
+      "http://127.0.0.1:3001",
+      "http://localhost:3001",
+      process.env.IJNUT_PUBLIC_DASHBOARD_URL?.trim().replace(/\/$/, ""),
+      // Railway preview / custom domains (comma-separated)
+      ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") ?? []).map((s) =>
+        s.trim().replace(/\/$/, ""),
+      ),
+    ].filter((v): v is string => Boolean(v)),
+  ),
+);
+
+console.info(
+  `[auth] baseURL=${dashboardOrigin} github=${Boolean(githubId && githubSecret)} trustedOrigins=${trustedOrigins.join(",")}`,
+);
+
 export const auth = betterAuth({
   database: pgPool(),
   secret: authSecret(),
   baseURL: dashboardOrigin,
-  trustedOrigins: [dashboardOrigin, "http://127.0.0.1:3001", "http://localhost:3001"],
+  basePath: "/api/auth",
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {

@@ -4,9 +4,19 @@
  */
 import { getApiUrl } from '@/shared/api/client.server';
 
+function dashboardPublicOrigin(): string {
+  return (
+    process.env.BETTER_AUTH_URL?.trim() ||
+    process.env.IJNUT_PUBLIC_DASHBOARD_URL?.trim() ||
+    'http://127.0.0.1:3001'
+  ).replace(/\/$/, '');
+}
+
 export async function proxyAuthRequest(request: Request): Promise<Response> {
   const incoming = new URL(request.url);
   const target = `${getApiUrl()}${incoming.pathname}${incoming.search}`;
+  const publicOrigin = dashboardPublicOrigin();
+  const publicUrl = new URL(publicOrigin);
 
   const headers = new Headers();
   const cookie = request.headers.get('cookie');
@@ -15,9 +25,12 @@ export async function proxyAuthRequest(request: Request): Promise<Response> {
   if (contentType) headers.set('content-type', contentType);
   const authorization = request.headers.get('authorization');
   if (authorization) headers.set('authorization', authorization);
-  // better-auth CSRF / origin checks — keep the dashboard origin the browser used.
-  const origin = request.headers.get('origin');
-  if (origin) headers.set('origin', origin);
+
+  // better-auth builds request URL from Host / X-Forwarded-* — must look like the dashboard.
+  headers.set('host', publicUrl.host);
+  headers.set('x-forwarded-host', publicUrl.host);
+  headers.set('x-forwarded-proto', publicUrl.protocol.replace(':', ''));
+  headers.set('origin', request.headers.get('origin') ?? publicOrigin);
   const referer = request.headers.get('referer');
   if (referer) headers.set('referer', referer);
   headers.set('accept', request.headers.get('accept') ?? 'application/json');
@@ -35,12 +48,10 @@ export async function proxyAuthRequest(request: Request): Promise<Response> {
 
   const upstream = await fetch(target, init);
 
-  // Pass through status, body, and Set-Cookie / Location for OAuth.
   const outHeaders = new Headers();
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
     if (lower === 'transfer-encoding') return;
-    // Multiple Set-Cookie headers must not be collapsed incorrectly.
     if (lower === 'set-cookie') return;
     outHeaders.set(key, value);
   });
