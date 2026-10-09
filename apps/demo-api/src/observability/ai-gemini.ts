@@ -1,12 +1,7 @@
 /**
  * Gemini chat via Google's OpenAI-compatible endpoint.
- * Lives on demo-api so cloud quota cannot be bypassed by a rogue dashboard.
  */
-
-export type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
+import type { ChatMessage } from "./ai-types";
 
 const RETIRED_MODELS = new Set([
   "gemini-2.0-flash",
@@ -43,7 +38,7 @@ export async function chatWithGemini(messages: ChatMessage[]): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
-      "GEMINI_API_KEY is not set on the API. Add it to the demo-api / root .env.",
+      "GEMINI_API_KEY is not set on the API. Add it to demo-api env.",
     );
   }
 
@@ -90,19 +85,3 @@ export async function chatWithGemini(messages: ChatMessage[]): Promise<string> {
 
   return content.trim();
 }
-
-export const AI_SYSTEM_PROMPT = `You are an assistant inside IJNUT.
-You help developers understand API performance using ONLY the metrics JSON provided in the conversation.
-
-You can:
-1) Explain why a request looks slow/fast (use spans when present: db vs cache vs other).
-2) Summarize a load/stress test report in plain language.
-3) Answer questions about routes, errors, p95, and recent requests.
-4) Suggest practical fixes (indexes, caching, rate limits, auth mistakes) — clearly labeled as suggestions, not guarantees.
-
-Rules:
-- Be concise and use simple words.
-- If data is missing, say what is missing instead of guessing.
-- Never invent SQL results or metrics that are not in the context.
-- Do not ask the user to paste secrets. Do not request API keys.
-- Prefer short bullet points when listing findings.`;

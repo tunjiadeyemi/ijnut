@@ -2,10 +2,11 @@ import { Injectable } from "@nestjs/common";
 import type { MetricsStore } from "@api-obs/observability";
 import {
   AI_SYSTEM_PROMPT,
-  chatWithGemini,
-  isGeminiConfigured,
+  chatWithAi,
+  isAiConfigured,
+  resolveAiProvider,
   type ChatMessage,
-} from "./ai-gemini";
+} from "./ai-provider";
 import {
   consumeAiMessage,
   getAiFreeLimit,
@@ -24,6 +25,7 @@ export type AiChatBody = {
 
 export type AiStatusResponse = {
   configured: boolean;
+  provider: ReturnType<typeof resolveAiProvider>;
   mode: ReturnType<typeof getIjnutMode>;
   authenticated: boolean;
   needsAuth: boolean;
@@ -56,7 +58,7 @@ export type AiChatResponse =
 const DEFAULT_GATE_CTA = {
   upgrade: "Subscribe on IJNUT Cloud for unlimited AI via Bachs.",
   selfHost:
-    "Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.",
+    "Or self-host: docker compose up --build, set GEMINI_API_KEY or COHERE_API_KEY on the API — no IJNUT fees.",
   signIn: "Sign in to unlock 3 free AI messages on Cloud.",
 };
 
@@ -64,7 +66,8 @@ const DEFAULT_GATE_CTA = {
 export class AiService {
   status(access: AiAccess): AiStatusResponse {
     return {
-      configured: isGeminiConfigured(),
+      configured: isAiConfigured(),
+      provider: resolveAiProvider(),
       mode: getIjnutMode(),
       authenticated: access.authenticated,
       needsAuth: access.needsAuth,
@@ -85,12 +88,12 @@ export class AiService {
     body: AiChatBody,
     sessionToken: string | undefined,
   ): Promise<AiChatResponse> {
-    if (!isGeminiConfigured()) {
+    if (!isAiConfigured()) {
       return {
         ok: false,
         gated: false,
         message:
-          "GEMINI_API_KEY is not configured on the API. Add it to demo-api env.",
+          "No AI provider configured. Set AI_PROVIDER=gemini|cohere and GEMINI_API_KEY or COHERE_API_KEY on the API.",
       };
     }
 
@@ -189,7 +192,7 @@ export class AiService {
     ];
 
     try {
-      const reply = await chatWithGemini(messages);
+      const reply = await chatWithAi(messages);
       return { ok: true, reply, remaining };
     } catch (err) {
       return {

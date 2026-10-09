@@ -58,7 +58,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           cta: {
             upgrade: 'Subscribe on IJNUT Cloud for unlimited AI via Bachs.',
             selfHost:
-              'Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.',
+              'Or self-host: docker compose up --build, set GEMINI_API_KEY or COHERE_API_KEY on the API — no IJNUT fees.',
             signIn: 'Sign in to unlock 3 free AI messages on Cloud.'
           },
           statusError: err instanceof Error ? err.message : 'Could not load AI status'
@@ -86,7 +86,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
       return;
     }
     if (status?.configured === false) {
-      toast.error('Add GEMINI_API_KEY on the API (.env / Railway)', 'AI off');
+      toast.error('Set GEMINI_API_KEY or COHERE_API_KEY on the API', 'AI off');
       return;
     }
 
@@ -218,7 +218,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         ) : null}
         {configured === false ? (
           <p className="text-muted-foreground text-xs">
-            Set GEMINI_API_KEY on the API (Railway / demo-api env)
+            Set GEMINI_API_KEY or COHERE_API_KEY on the API (AI_PROVIDER=gemini|cohere)
           </p>
         ) : null}
 

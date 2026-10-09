@@ -46,7 +46,7 @@ api-observability-lite/
 cp apps/demo-api/.env.example apps/demo-api/.env
 cp apps/dashboard/.env.example apps/dashboard/.env
 # or: cp .env.example .env  (combined local file)
-# set GEMINI_API_KEY on the API if you want AI
+# set GEMINI_API_KEY or COHERE_API_KEY (+ AI_PROVIDER) on the API if you want AI
 docker compose up --build
 ```
 
@@ -94,7 +94,7 @@ pnpm --filter dashboard dev
 
 Open the hosted dashboard as a guest (metrics/stress/agent report). Sign in for **3 free AI messages**, then subscribe CTA (or self-host with your own Gemini key). Stress stays rate-limited on free Cloud.
 
-**Host operators:** set `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, GitHub OAuth secrets, keep `STRESS_ALLOWLIST` tight, and set `GEMINI_API_KEY` on the dashboard. Until you deploy, the open-source path is self-host only — no VPS required for contributors.
+**Host operators:** set `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, GitHub OAuth secrets, keep `STRESS_ALLOWLIST` tight, and set `GEMINI_API_KEY` or `COHERE_API_KEY` on the **API**. Until you deploy, the open-source path is self-host only — no VPS required for contributors.
 
 ## Smoke checks (self-host)
 
@@ -148,7 +148,8 @@ Optional combined local file: [`.env.example`](./.env.example).
 | `BETTER_AUTH_SECRET` | API only | Signs session cookies (not a user password) |
 | `BETTER_AUTH_URL` | Both | Public **dashboard** origin (OAuth + cookies) |
 | `DATABASE_URL` / `REDIS_URL` | API | Postgres + Redis |
-| `GEMINI_*` / `BACHS_*` / `GITHUB_*` | API | AI, billing, OAuth |
+| `AI_PROVIDER` / `GEMINI_*` / `COHERE_*` | API | AI (`gemini` or `cohere`) |
+| `BACHS_*` / `GITHUB_*` | API | Billing, OAuth |
 | `IJNUT_MODE` / `IJNUT_PLAN` | Both (API enforces) | `cloud` vs `selfhost` freemium |
 | `COOKIE_SECURE` | Dashboard | `true` only behind HTTPS |
 
