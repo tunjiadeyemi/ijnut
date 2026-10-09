@@ -1,4 +1,4 @@
-import { Eraser, Loader2, LogIn, LogOut, RefreshCw, Telescope } from 'lucide-react';
+import { CreditCard, Eraser, Loader2, LogIn, LogOut, RefreshCw, Telescope } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import type { OverviewResponse, RequestRecord, StressReport } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/button';
@@ -21,10 +21,12 @@ type Props = {
   busy: boolean;
   clearDisabled: boolean;
   auth: AuthSummary;
+  showBilling?: boolean;
   onAutoRefreshChange: (checked: boolean) => void;
   onRefresh: () => void;
   onClear: () => void;
   onLogout: () => void;
+  onManageBilling?: () => void;
 };
 
 export function DashboardHeader({
@@ -36,10 +38,12 @@ export function DashboardHeader({
   busy,
   clearDisabled,
   auth,
+  showBilling,
   onAutoRefreshChange,
   onRefresh,
   onClear,
-  onLogout
+  onLogout,
+  onManageBilling
 }: Props) {
   return (
     <header className="flex shrink-0 flex-col gap-3 border-b border-border pb-3 sm:gap-2">
@@ -94,6 +98,18 @@ export function DashboardHeader({
             <Eraser className="size-3.5 shrink-0" />
             <HoverIconLabel>Clear</HoverIconLabel>
           </Button>
+          {showBilling && onManageBilling ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="group h-8 px-2"
+              aria-label="Billing"
+              onClick={onManageBilling}
+            >
+              <CreditCard className="size-3.5 shrink-0" />
+              <HoverIconLabel>Billing</HoverIconLabel>
+            </Button>
+          ) : null}
           {auth.authenticated ? (
             <Button
               variant="ghost"

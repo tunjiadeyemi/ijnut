@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiBachsWebhookRouteImport } from './routes/api/bachs/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBachsWebhookRoute = ApiBachsWebhookRouteImport.update({
+  id: '/api/bachs/webhook',
+  path: '/api/bachs/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/bachs/webhook': typeof ApiBachsWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/bachs/webhook': typeof ApiBachsWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,21 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/bachs/webhook': typeof ApiBachsWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/reset-password' | '/api/auth/$'
+  fullPaths:
+    '/' | '/login' | '/reset-password' | '/api/auth/$' | '/api/bachs/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/reset-password' | '/api/auth/$'
-  id: '__root__' | '/' | '/login' | '/reset-password' | '/api/auth/$'
+  to: '/' | '/login' | '/reset-password' | '/api/auth/$' | '/api/bachs/webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/reset-password'
+    | '/api/auth/$'
+    | '/api/bachs/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +83,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiBachsWebhookRoute: typeof ApiBachsWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +116,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/bachs/webhook': {
+      id: '/api/bachs/webhook'
+      path: '/api/bachs/webhook'
+      fullPath: '/api/bachs/webhook'
+      preLoaderRoute: typeof ApiBachsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +131,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiBachsWebhookRoute: ApiBachsWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

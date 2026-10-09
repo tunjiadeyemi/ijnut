@@ -50,8 +50,9 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           limit: null,
           remaining: null,
           aiUsed: 0,
+          billingConfigured: false,
           cta: {
-            upgrade: 'Subscribe on IJNUT Cloud for unlimited AI.',
+            upgrade: 'Subscribe on IJNUT Cloud for unlimited AI via Bachs.',
             selfHost:
               'Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.',
             signIn: 'Sign in to unlock 3 free AI messages on Cloud.'
@@ -275,6 +276,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
               message={gateMessage}
               cta={status.cta}
               needsAuth={status.needsAuth}
+              billingConfigured={status.billingConfigured}
             />
           </div>
         ) : null}

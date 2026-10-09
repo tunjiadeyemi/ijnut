@@ -142,6 +142,7 @@ See [`.env.example`](./.env.example). Important ones:
 | `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` | Auth crypto + public dashboard URL |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Optional GitHub OAuth |
 | `RESEND_API_KEY` | Optional password-reset email (else link is logged) |
+| `BACHS_SECRET_KEY` / `BACHS_PRODUCT_ID` / `BACHS_WEBHOOK_SECRET` | Cloud Pro checkout via [Bachs](https://bachs.io/) (optional) |
 | `REDIS_URL` | Redis for redirect cache |
 | `STRESS_ALLOWLIST` | Hosts stress may target |
 | `STRESS_MAX_CONNECTIONS` / `STRESS_MAX_DURATION_SEC` | Safety caps (cloud free defaults lower if unset) |
@@ -154,7 +155,7 @@ See [`.env.example`](./.env.example). Important ones:
 
 1. Dashboard (guest) → create a short code via Demo API, warm Redis, run stress → hit vs miss ([`RESULTS.md`](./RESULTS.md)).
 2. Stress twice quickly → **429** (and Cloud free shows upgrade/self-host CTA).
-3. Cloud: sign in → 3 AI messages → panel dims with subscribe CTA.
+3. Cloud: sign in → 3 AI messages → panel dims → **Subscribe** ([Bachs](https://bachs.io/)) → webhook sets `plan=pro`.
 4. `DELETE /shorten/:code` with `x-api-key: demo-user` → **403**; missing key → **401**.
 5. **Agent report** → copy into Cursor and ask for a bottleneck write-up.
 
@@ -165,7 +166,7 @@ See [`.env.example`](./.env.example). Important ones:
 3. **Route normalization** is required or cardinality explodes.
 4. **Admin token** stays server-side in the dashboard BFF.
 5. Stress **allowlist** + caps prevent open-proxy abuse (this is not a public load gun).
-6. Cloud AI quota is **per-user in Postgres** (`aiUsed`); env `IJNUT_PLAN=pro` or user `plan=pro` unlocks AI (Stripe later).
+6. Cloud AI quota is **per-user in Postgres** (`aiUsed`); Bachs webhook sets `plan=pro` (or env `IJNUT_PLAN=pro`).
 
 ## Scripts
 

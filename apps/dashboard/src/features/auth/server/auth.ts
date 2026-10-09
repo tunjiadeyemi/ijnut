@@ -93,6 +93,20 @@ export const auth = betterAuth({
         defaultValue: 0,
         input: false,
         returned: true
+      },
+      bachsCustomerId: {
+        type: 'string',
+        required: false,
+        defaultValue: undefined,
+        input: false,
+        returned: false
+      },
+      bachsSubscriptionId: {
+        type: 'string',
+        required: false,
+        defaultValue: undefined,
+        input: false,
+        returned: false
       }
     }
   },

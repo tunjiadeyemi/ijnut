@@ -44,6 +44,16 @@ const auth = betterAuth({
         required: false,
         defaultValue: 0,
         input: false
+      },
+      bachsCustomerId: {
+        type: 'string',
+        required: false,
+        input: false
+      },
+      bachsSubscriptionId: {
+        type: 'string',
+        required: false,
+        input: false
       }
     }
   }

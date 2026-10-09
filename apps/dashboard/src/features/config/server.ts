@@ -16,7 +16,7 @@ export const DEFAULT_GATE_CTA: {
   selfHost: string;
   signIn: string;
 } = {
-  upgrade: 'Subscribe on IJNUT Cloud for unlimited AI (billing soon — set user plan=pro for now).',
+  upgrade: 'Subscribe on IJNUT Cloud for unlimited AI via Bachs.',
   selfHost:
     'Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.',
   signIn: 'Sign in to unlock 3 free AI messages on Cloud.'

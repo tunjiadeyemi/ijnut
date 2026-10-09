@@ -15,6 +15,7 @@ import {
   type RouteAggregate
 } from '@/features/overview/functions';
 import { logout } from '@/features/auth/functions';
+import { createPortal } from '@/features/billing/functions';
 import type { StressInput } from '@/shared/api/types';
 import { getDashboardConfig } from '@/features/config/functions';
 import { fetchStressReports, runStressTest, type StressReport } from '@/features/stress/functions';
@@ -33,9 +34,16 @@ export type DashboardLoaderData = {
   stress: { reports: StressReport[] };
   config: Awaited<ReturnType<typeof getDashboardConfig>>;
   auth: Awaited<ReturnType<typeof import('@/features/auth/functions').getAuthState>>;
+  billing: Awaited<ReturnType<typeof import('@/features/billing/functions').getBillingStatus>>;
 };
 
-export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
+export function DashboardPage({
+  initial,
+  checkout
+}: {
+  initial: DashboardLoaderData;
+  checkout?: 'success' | 'cancel';
+}) {
   const toast = useToast();
   const demoApiBase = initial.config.publicApiUrl;
 
@@ -90,6 +98,16 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
     return () => clearInterval(id);
   }, [autoRefresh, running, toast]);
 
+  useEffect(() => {
+    if (checkout === 'success') {
+      toast.success('Subscription active — unlimited AI unlocked.', 'Welcome to Pro');
+      window.history.replaceState({}, '', '/');
+    } else if (checkout === 'cancel') {
+      toast.error('Checkout canceled.', 'No charge');
+      window.history.replaceState({}, '', '/');
+    }
+  }, [checkout, toast]);
+
   async function onRunStress(input: StressInput) {
     setRunning(true);
     try {
@@ -131,6 +149,15 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
     window.location.assign('/');
   }
 
+  async function onManageBilling() {
+    const result = await createPortal();
+    if (!result.ok) {
+      toast.error(result.message, 'Billing');
+      return;
+    }
+    window.location.assign(result.url);
+  }
+
   async function onClearHistory() {
     const ok = window.confirm('Clear all recorded requests, route stats, and past load tests?');
     if (!ok) return;
@@ -161,6 +188,7 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
             ? { name: initial.auth.user.name, email: initial.auth.user.email }
             : null
         }}
+        showBilling={initial.billing.hasCustomer}
         onAutoRefreshChange={setAutoRefresh}
         onRefresh={() =>
           startTransition(() => {
@@ -171,6 +199,7 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
         }
         onClear={() => void onClearHistory()}
         onLogout={() => void onLogout()}
+        onManageBilling={() => void onManageBilling()}
       />
 
       <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />

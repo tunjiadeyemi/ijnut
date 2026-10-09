@@ -14,6 +14,7 @@ export const getAiStatus = createServerFn({ method: 'GET' }).handler(async () =>
   const { isGeminiConfigured } = await import('./server/gemini.server');
   const { DEFAULT_GATE_CTA, getIjnutMode } = await import('@/features/config/server');
   const { getSession, resolveAiAccess } = await import('./server/ai-quota.server');
+  const { isBachsConfigured } = await import('@/features/billing/server/bachs.server');
 
   const session = await getSession();
   const access = await resolveAiAccess(session);
@@ -28,6 +29,7 @@ export const getAiStatus = createServerFn({ method: 'GET' }).handler(async () =>
     limit: access.limit,
     remaining: access.remaining,
     aiUsed: access.aiUsed,
+    billingConfigured: isBachsConfigured(),
     cta: { ...DEFAULT_GATE_CTA }
   };
 });
