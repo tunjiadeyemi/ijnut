@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
+import express from "express";
 import { NestFactory } from "@nestjs/core";
 import { ExpressAdapter } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
@@ -12,8 +13,6 @@ config({
 });
 
 async function bootstrap() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const express = require("express") as typeof import("express");
   const { toNodeHandler } = await import("better-auth/node");
 
   const server = express();
