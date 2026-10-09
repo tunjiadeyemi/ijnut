@@ -2,7 +2,9 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
 
 import appCss from '../styles.css?url';
 import { NotFound } from '@/shared/components/NotFound';
+import { ThemeProvider } from '@/shared/components/ThemeProvider';
 import { ToastProvider } from '@/shared/components/ui/toast';
+import { THEME_BOOT_SCRIPT } from '@/shared/lib/theme';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -12,6 +14,10 @@ export const Route = createRootRoute({
         name: 'viewport',
         content: 'width=device-width, initial-scale=1'
       },
+      {
+        name: 'color-scheme',
+        content: 'light dark'
+      },
       { title: 'IJNUT' }
     ],
     links: [
@@ -20,6 +26,11 @@ export const Route = createRootRoute({
         href: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap'
       },
       { rel: 'stylesheet', href: appCss }
+    ],
+    scripts: [
+      {
+        children: THEME_BOOT_SCRIPT
+      }
     ]
   }),
   shellComponent: RootDocument,
@@ -28,14 +39,16 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="h-svh max-h-svh overflow-hidden">
-        <ToastProvider>
-          <div className="h-svh max-h-svh overflow-hidden">{children}</div>
-        </ToastProvider>
+      <body className="min-h-svh overflow-x-hidden lg:h-svh lg:max-h-svh lg:overflow-hidden">
+        <ThemeProvider>
+          <ToastProvider>
+            <div className="min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden">{children}</div>
+          </ToastProvider>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

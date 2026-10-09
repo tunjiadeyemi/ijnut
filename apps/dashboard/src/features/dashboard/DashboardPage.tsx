@@ -147,7 +147,7 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
   }
 
   return (
-    <div className="mx-auto flex h-svh max-h-svh w-full max-w-[1600px] flex-col overflow-hidden px-4 py-3 sm:px-6 sm:py-4">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-3 py-3 sm:px-6 sm:py-4 lg:h-svh lg:max-h-svh lg:overflow-hidden">
       <DashboardHeader
         overview={overview}
         requests={requests}
@@ -170,13 +170,13 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
 
       <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden border-b border-border lg:grid-cols-[1.35fr_0.9fr] lg:divide-x lg:divide-border">
+      <div className="flex flex-col border-b border-border lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[1.35fr_0.9fr] lg:overflow-hidden lg:divide-x lg:divide-border">
         <RoutesPanel
           routes={visibleRoutes}
           showToolTraffic={showToolTraffic}
           onShowToolTrafficChange={setShowToolTraffic}
         />
-        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden py-4 lg:pl-8">
+        <section className="flex min-h-[20rem] min-w-0 flex-col border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pl-8">
           <AiChatPanel
             latestRequest={visibleRequests[0] ?? null}
             latestStress={lastReport ?? reports[0] ?? null}
@@ -184,7 +184,7 @@ export function DashboardPage({ initial }: { initial: DashboardLoaderData }) {
         </section>
       </div>
 
-      <div className="grid min-h-0 flex-[0.85] grid-cols-1 overflow-hidden lg:grid-cols-2 lg:divide-x lg:divide-border">
+      <div className="flex flex-col pb-6 lg:grid lg:min-h-0 lg:flex-[0.85] lg:grid-cols-2 lg:overflow-hidden lg:divide-x lg:divide-border lg:pb-0">
         <RequestHistory requests={visibleRequests} />
         <StressPanel
           demoApiBase={demoApiBase}

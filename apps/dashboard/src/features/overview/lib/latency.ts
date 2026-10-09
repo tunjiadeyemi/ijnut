@@ -11,15 +11,15 @@ export function latencyLevel(ms: number | null | undefined): LatencyLevel {
   return 'high';
 }
 
-/** Text color classes for timing values. */
+/** Text color classes for timing values (light + dark). */
 export function latencyTextClass(ms: number | null | undefined): string {
   switch (latencyLevel(ms)) {
     case 'ok':
-      return 'text-emerald-700';
+      return 'text-emerald-700 dark:text-emerald-400';
     case 'warn':
-      return 'text-amber-700';
+      return 'text-amber-700 dark:text-amber-400';
     case 'high':
-      return 'text-red-700';
+      return 'text-red-700 dark:text-red-400';
     default:
       return 'text-muted-foreground';
   }

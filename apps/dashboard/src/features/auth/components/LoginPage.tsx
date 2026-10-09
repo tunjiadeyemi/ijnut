@@ -8,6 +8,7 @@ import { loginWithAdminKey } from '@/features/auth/functions';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
+import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 
@@ -36,7 +37,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-3 py-8 sm:px-4 sm:py-10">
+    <div className="relative mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-3 py-8 sm:px-4 sm:py-10">
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
+        <ThemeToggle compact />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

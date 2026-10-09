@@ -22,7 +22,7 @@ type Props = {
 
 export function RoutesPanel({ routes, showToolTraffic, onShowToolTrafficChange }: Props) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto border-b border-border py-4 lg:border-b-0 lg:pr-8">
+    <section className="flex min-h-[22rem] min-w-0 flex-col gap-3 border-b border-border py-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:pr-8">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
         <h2 className="text-sm font-medium">Routes</h2>
         <label className="text-muted-foreground flex items-center gap-1.5 text-xs">

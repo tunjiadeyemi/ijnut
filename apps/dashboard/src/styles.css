@@ -1,5 +1,7 @@
 @import "tailwindcss" source("./");
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -47,6 +49,41 @@
   --border: oklch(0.84 0.015 160);
   --input: oklch(0.84 0.015 160);
   --ring: oklch(0.42 0.09 160);
+  --chart-grid: oklch(0.9 0.01 160);
+  --chart-tick: oklch(0.5 0.02 160);
+  --chart-axis: oklch(0.88 0.01 160);
+  --chart-cursor: oklch(0.95 0.01 160);
+  --chart-tooltip-border: oklch(0.9 0.01 160);
+  --bg-glow-a: oklch(0.93 0.04 160 / 0.7);
+  --bg-glow-b: oklch(0.94 0.02 220 / 0.5);
+}
+
+.dark {
+  --background: oklch(0.16 0.015 160);
+  --foreground: oklch(0.93 0.01 160);
+  --card: oklch(0.2 0.018 160);
+  --card-foreground: oklch(0.93 0.01 160);
+  --popover: oklch(0.2 0.018 160);
+  --popover-foreground: oklch(0.93 0.01 160);
+  --primary: oklch(0.72 0.1 160);
+  --primary-foreground: oklch(0.16 0.02 160);
+  --secondary: oklch(0.26 0.02 160);
+  --secondary-foreground: oklch(0.9 0.01 160);
+  --muted: oklch(0.24 0.015 160);
+  --muted-foreground: oklch(0.68 0.02 160);
+  --accent: oklch(0.28 0.025 160);
+  --accent-foreground: oklch(0.92 0.01 160);
+  --destructive: oklch(0.65 0.18 25);
+  --border: oklch(0.32 0.02 160);
+  --input: oklch(0.32 0.02 160);
+  --ring: oklch(0.72 0.1 160);
+  --chart-grid: oklch(0.3 0.015 160);
+  --chart-tick: oklch(0.65 0.02 160);
+  --chart-axis: oklch(0.34 0.015 160);
+  --chart-cursor: oklch(0.28 0.02 160);
+  --chart-tooltip-border: oklch(0.34 0.02 160);
+  --bg-glow-a: oklch(0.28 0.05 160 / 0.35);
+  --bg-glow-b: oklch(0.26 0.04 220 / 0.28);
 }
 
 @layer base {
@@ -54,22 +91,31 @@
     @apply border-border outline-ring/50;
   }
   html {
-    overflow: hidden;
     height: 100%;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     background-image:
-      radial-gradient(900px 420px at 8% -10%, oklch(0.93 0.04 160 / 0.7), transparent 55%),
-      radial-gradient(700px 380px at 100% 0%, oklch(0.94 0.02 220 / 0.5), transparent 50%);
-    height: 100%;
-    max-height: 100svh;
-    overflow: hidden;
+      radial-gradient(900px 420px at 8% -10%, var(--bg-glow-a), transparent 55%),
+      radial-gradient(700px 380px at 100% 0%, var(--bg-glow-b), transparent 50%);
+    min-height: 100%;
+    min-height: 100svh;
   }
-  #root,
-  #app {
-    height: 100%;
-    max-height: 100svh;
+  @media (min-width: 1024px) {
+    html {
+      overflow: hidden;
+      height: 100%;
+    }
+    body {
+      height: 100%;
+      max-height: 100svh;
+      overflow: hidden;
+    }
+    #root,
+    #app {
+      height: 100%;
+      max-height: 100svh;
+    }
   }
   code {
     @apply font-mono text-[0.92em];

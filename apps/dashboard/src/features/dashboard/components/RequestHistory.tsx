@@ -11,9 +11,9 @@ type Props = {
 
 export function RequestHistory({ requests }: Props) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden border-b border-border py-4 lg:border-b-0 lg:pr-8">
+    <section className="flex min-h-[16rem] min-w-0 flex-col gap-2 border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-8">
       <h2 className="shrink-0 border-b border-border pb-2 text-sm font-medium">History</h2>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="max-h-64 min-h-0 flex-1 overflow-auto lg:max-h-none">
         <Table>
           <TableBody>
             {requests.length === 0 ? (

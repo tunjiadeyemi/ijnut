@@ -104,8 +104,8 @@ export function StressPanel({
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-col gap-2 overflow-y-auto py-4 lg:pl-8">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
+    <section className="flex min-w-0 flex-col gap-2 py-4 lg:min-h-0 lg:overflow-y-auto lg:pl-8">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <h2 className="text-sm font-medium">Load</h2>
         <div
           role="radiogroup"

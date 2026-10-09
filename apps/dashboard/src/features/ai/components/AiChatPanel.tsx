@@ -128,8 +128,8 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     status?.gated && status.remaining != null ? `${status.remaining} left today` : null;
 
   return (
-    <Card className="flex h-full min-h-0 flex-col border-0 bg-transparent shadow-none">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 border-b border-border px-0 pb-3 pt-0">
+    <Card className="flex h-full min-h-[18rem] flex-col border-0 bg-transparent shadow-none lg:min-h-0">
+      <CardHeader className="flex flex-col gap-2 space-y-0 border-b border-border px-0 pb-3 pt-0 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <Bot className="text-primary size-4" />
           Ask
@@ -137,7 +137,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             <span className="text-muted-foreground font-normal">· {remainingLabel}</span>
           ) : null}
         </CardTitle>
-        <div className="flex items-center gap-0.5">
+        <div className="-mx-1 flex items-center gap-0.5 overflow-x-auto px-1">
           <Button
             type="button"
             size="sm"
