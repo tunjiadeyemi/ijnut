@@ -98,11 +98,21 @@ export class ObservabilityController {
       process.env.DEMO_PUBLIC_URL,
     );
 
+    const mode = (process.env.IJNUT_MODE ?? "selfhost").toLowerCase();
+    const plan = (process.env.IJNUT_PLAN ?? "free").toLowerCase();
+    const cloudFree = mode === "cloud" && plan !== "pro";
+    const maxConnections = Number(
+      process.env.STRESS_MAX_CONNECTIONS ?? (cloudFree ? 20 : 100),
+    );
+    const maxDurationSec = Number(
+      process.env.STRESS_MAX_DURATION_SEC ?? (cloudFree ? 15 : 60),
+    );
+
     try {
       const { report } = await runStress(body, this.store, {
         allowlist,
-        maxConnections: Number(process.env.STRESS_MAX_CONNECTIONS ?? 100),
-        maxDurationSec: Number(process.env.STRESS_MAX_DURATION_SEC ?? 60),
+        maxConnections,
+        maxDurationSec,
         maxAmount: Number(process.env.STRESS_MAX_AMOUNT ?? 50_000),
       });
       return report;

@@ -1,8 +1,18 @@
-# API Observability Lite
+# API Observability Lite (IJNUT)
 
 Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p95**, recent request log, admin-secured HTTP API, **TanStack Start** dashboard, and a **built-in stress runner** (autocannon) — wired to a NestJS URL shortener so metrics are real under load.
 
 > Portfolio story: load-test redirect **cache hit vs miss**, surface 401/429 in metrics, paste an **agent report** into Cursor, and document bottlenecks with numbers in [`RESULTS.md`](./RESULTS.md).
+
+## Choose a path
+
+| Path | What you run | Who pays for Gemini / stress CPU |
+|------|----------------|----------------------------------|
+| **Self-host** (default) | Full stack on your machine / VPS | You (bring your own `GEMINI_API_KEY`) |
+| **IJNUT Cloud** (optional) | Dashboard only → operator’s hosted API | Operator — free tier is **gated**; upgrade or self-host when limited |
+| **Cloud pro** | Same hosted API with `IJNUT_PLAN=pro` | Operator (paid later; flag unlocks limits today) |
+
+Core metrics, login, and the shortener stay available on free Cloud. **Gemini chat** and aggressive **stress** are what get limited — those are the cost drivers.
 
 ## Features
 
@@ -15,6 +25,7 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 - Demo / Live base URL, custom methods, headers, body; calm 100svh metrics UI
 - Optional **Gemini chat** (explain requests, summarize load tests, suggest fixes)
 - **Agent report** — markdown snapshot you can copy into Cursor / any coding agent
+- Cloud free: daily AI quota + stricter stress defaults; CTA to upgrade or self-host
 
 ## Monorepo layout
 
@@ -28,14 +39,10 @@ api-observability-lite/
   docker-compose.yml   Postgres + Redis + API + dashboard
 ```
 
-**pnpm workspaces** wire packages; **Turborepo** orchestrates `dev` / `build`.
-
-## Quickstart (Docker — full stack)
-
-One command once Docker Desktop is running:
+## Quickstart — self-host (recommended)
 
 ```bash
-cp .env.example .env          # optional Gemini key, change ADMIN_TOKEN
+cp .env.example .env          # set GEMINI_API_KEY if you want AI
 docker compose up --build
 ```
 
@@ -45,41 +52,44 @@ docker compose up --build
 | Demo API  | http://localhost:3000 |
 | Health    | http://localhost:3000/health |
 
-Login with `ADMIN_TOKEN` (default `change-me`). Gemini chat is optional — set `GEMINI_API_KEY` in `.env` and recreate the dashboard container.
+Login with `ADMIN_TOKEN` (default `change-me`).
 
 ```bash
-docker compose down            # stop
-pnpm docker:stack              # same as compose up -d --build
+pnpm docker:down
+pnpm docker:stack              # compose up -d --build
 pnpm docker:up                 # Postgres + Redis only (for local pnpm dev)
 ```
 
-## Quickstart (local apps)
-
-### Prerequisites
-
-- Node 20+
-- pnpm 9+
-- Docker Desktop (Postgres + Redis)
-
-### 1. Install & infra
+### Local apps (infra in Docker)
 
 ```bash
 pnpm install
 cp .env.example .env
 pnpm docker:up                 # postgres :5433 + redis :6379
+pnpm dev
+# API → :3000   Dashboard → :3001
 ```
 
-### 2. Run API + dashboard
+## Quickstart — try IJNUT Cloud (no Docker for you)
+
+When a public API is deployed (VPS/PaaS running this Compose stack):
 
 ```bash
-pnpm dev
-# API        → http://127.0.0.1:3000
-# Dashboard  → http://127.0.0.1:3001
+pnpm install
+cp .env.example .env
+# Point at the hosted API (example — replace with the real URL when live)
+# OBSERVABILITY_API_URL=https://api.ijnut.example
+# IJNUT_PUBLIC_API_URL=https://api.ijnut.example
+# IJNUT_MODE=cloud
+# IJNUT_PLAN=free
+pnpm --filter dashboard dev
 ```
 
-Or separately: `pnpm --filter demo-api dev` / `pnpm --filter dashboard dev`.
+Login with the demo admin token the operator publishes. Metrics/login/shortener work; AI hits a **daily cap**; stress is rate-limited — upgrade (`IJNUT_PLAN=pro` on the host) or self-host with your own Gemini key.
 
-### 3. Smoke checks
+**Host operators:** set `IJNUT_MODE=cloud`, keep `STRESS_ALLOWLIST` tight (only your public host), low `STRESS_RATE_LIMIT_PER_MIN`, and set `GEMINI_API_KEY` on the dashboard service. Until you deploy, the open-source path is self-host only — no VPS required for contributors.
+
+## Smoke checks (self-host)
 
 ```bash
 curl -s http://127.0.0.1:3000/health
@@ -97,13 +107,11 @@ curl -s -X POST http://127.0.0.1:3000/shorten \
 curl -sI http://127.0.0.1:3000/<code>   # X-Cache: MISS then HIT
 ```
 
-Open http://127.0.0.1:3001 → login with `change-me`.
-
 ## Architecture
 
 ```text
 Browser (dashboard :3001)
-  → TanStack Start server functions (holds OBSERVABILITY_ADMIN_TOKEN)
+  → TanStack Start server functions
   → Demo API /observability/*  (auth → stress rate limit → handler)
 
 Browser / autocannon
@@ -112,9 +120,8 @@ Browser / autocannon
         → handler (shorten / redirect)
         → metrics recorded
 
-Stress runner (inside demo-api process for MVP)
+Stress runner (inside demo-api)
   → hammers allowlisted target only
-  → same middleware records live metrics
 ```
 
 ## Env vars
@@ -123,14 +130,17 @@ See [`.env.example`](./.env.example). Important ones:
 
 | Variable | Purpose |
 |----------|---------|
+| `IJNUT_MODE` | `selfhost` (default) or `cloud` |
+| `IJNUT_PLAN` | `free` or `pro` (cloud AI/stress limits) |
+| `IJNUT_AI_DAILY_LIMIT` | Cloud free Gemini chats per UTC day (default `5`) |
+| `IJNUT_PUBLIC_API_URL` | Public API URL for Demo stress targets |
 | `ADMIN_TOKEN` | Protects `/observability/*` |
-| `OBSERVABILITY_ADMIN_TOKEN` | Dashboard server-side copy (must match) |
 | `OBSERVABILITY_API_URL` | Dashboard → API base URL (`http://api:3000` in Compose) |
 | `DATABASE_URL` | Postgres (host port **5433** when using infra-only compose) |
 | `REDIS_URL` | Redis for redirect cache |
 | `STRESS_ALLOWLIST` | Hosts stress may target |
-| `STRESS_MAX_CONNECTIONS` / `STRESS_MAX_DURATION_SEC` | Safety caps |
-| `GEMINI_API_KEY` | Optional AI chat + richer agent reports |
+| `STRESS_MAX_CONNECTIONS` / `STRESS_MAX_DURATION_SEC` | Safety caps (cloud free defaults lower if unset) |
+| `GEMINI_API_KEY` | AI chat (self-host: yours; cloud: operator’s, gated) |
 | `COOKIE_SECURE` | Set `true` only behind HTTPS |
 
 **Never** put the admin token in `VITE_*` / public client env.
@@ -138,7 +148,7 @@ See [`.env.example`](./.env.example). Important ones:
 ## Demo tips
 
 1. Dashboard → login with `ADMIN_TOKEN` → create a short code, warm Redis, run stress → hit vs miss ([`RESULTS.md`](./RESULTS.md)).
-2. Stress twice quickly → **429**; spam `POST /shorten` → **429**.
+2. Stress twice quickly → **429** (and Cloud free shows upgrade/self-host CTA).
 3. `DELETE /shorten/:code` with `x-api-key: demo-user` → **403**; missing key → **401**.
 4. **Agent report** → copy into Cursor and ask for a bottleneck write-up.
 
@@ -149,6 +159,7 @@ See [`.env.example`](./.env.example). Important ones:
 3. **Route normalization** is required or cardinality explodes.
 4. **Admin token** stays server-side in the dashboard BFF.
 5. Stress **allowlist** + caps prevent open-proxy abuse (this is not a public load gun).
+6. Cloud AI quota is **in-process** (resets on restart / not shared across replicas yet).
 
 ## Scripts
 
@@ -162,4 +173,4 @@ See [`.env.example`](./.env.example). Important ones:
 
 ## Resume one-liner
 
-> Built API Observability Lite: drop-in request metrics (p95/errors per route), admin-secured TanStack Start dashboard with Gemini + agent reports, and allowlisted stress testing — load-tested redirect cache hit vs miss and documented bottlenecks with real numbers.
+> Built API Observability Lite (IJNUT): drop-in request metrics (p95/errors per route), admin-secured TanStack Start dashboard with Gemini + agent reports, allowlisted stress testing, and a pay-or-self-host gate on Cloud AI/stress — load-tested redirect cache hit vs miss with real numbers.

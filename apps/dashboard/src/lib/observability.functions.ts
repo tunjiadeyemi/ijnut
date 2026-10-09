@@ -160,7 +160,6 @@ export const runStressTest = createServerFn({ method: "POST" })
         error: true as const,
         status: e.status ?? 500,
         message: e.message,
-        body: e.body,
       };
     }
   });
@@ -176,10 +175,46 @@ export type AiChatInput = {
   stressId?: string;
 };
 
+export const getDashboardConfig = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const {
+      DEFAULT_GATE_CTA,
+      getIjnutMode,
+      getIjnutPlan,
+      getPublicApiUrl,
+    } = await import("./ijnut-config.server");
+    return {
+      publicApiUrl: getPublicApiUrl(),
+      mode: getIjnutMode(),
+      plan: getIjnutPlan(),
+      cta: { ...DEFAULT_GATE_CTA },
+    };
+  },
+);
+
 export const getAiStatus = createServerFn({ method: "GET" }).handler(
   async () => {
     const { isGeminiConfigured } = await import("./gemini.server");
-    return { configured: isGeminiConfigured() };
+    const {
+      DEFAULT_GATE_CTA,
+      getAiDailyLimit,
+      getIjnutMode,
+      getIjnutPlan,
+      isAiGated,
+    } = await import("./ijnut-config.server");
+    const { getQuotaSnapshot } = await import("./ai-quota.server");
+    const subject = getSessionToken() ?? "anon";
+    const quota = getQuotaSnapshot(subject);
+    const limit = getAiDailyLimit();
+    return {
+      configured: isGeminiConfigured(),
+      mode: getIjnutMode(),
+      plan: getIjnutPlan(),
+      gated: isAiGated(),
+      limit: Number.isFinite(limit) ? limit : null,
+      remaining: Number.isFinite(quota.remaining) ? quota.remaining : null,
+      cta: { ...DEFAULT_GATE_CTA },
+    };
   },
 );
 
@@ -190,7 +225,22 @@ export const askObservabilityAi = createServerFn({ method: "POST" })
       const { AI_SYSTEM_PROMPT, chatWithGemini } = await import(
         "./gemini.server"
       );
+      const { DEFAULT_GATE_CTA } = await import("./ijnut-config.server");
+      const { canConsumeAi, consumeAi, getQuotaSnapshot } = await import(
+        "./ai-quota.server"
+      );
 
+      const subject = getSessionToken() ?? "anon";
+      if (!canConsumeAi(subject)) {
+        const quota = getQuotaSnapshot(subject);
+        return {
+          ok: false as const,
+          gated: true as const,
+          message: `Free Cloud AI limit reached (${quota.limit}/day). Upgrade or self-host with your own Gemini key.`,
+          cta: { ...DEFAULT_GATE_CTA },
+          remaining: 0,
+        };
+      }
 
       const [overview, requestsPayload, stressPayload] = await Promise.all([
         obsFetch<OverviewResponse>("/observability/overview"),
@@ -240,7 +290,6 @@ export const askObservabilityAi = createServerFn({ method: "POST" })
       }));
 
       const reply = await chatWithGemini([
-
         { role: "system", content: AI_SYSTEM_PROMPT },
         {
           role: "user",
@@ -250,10 +299,16 @@ export const askObservabilityAi = createServerFn({ method: "POST" })
         { role: "user", content: data.message },
       ]);
 
-      return { ok: true as const, reply };
+      const quota = consumeAi(subject);
+      return {
+        ok: true as const,
+        reply,
+        remaining: Number.isFinite(quota.remaining) ? quota.remaining : null,
+      };
     } catch (err) {
       return {
         ok: false as const,
+        gated: false as const,
         message: err instanceof Error ? err.message : "AI request failed",
       };
     }

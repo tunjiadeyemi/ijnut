@@ -37,6 +37,8 @@ services:
         required: false
     environment:
       PORT: 3000
+      IJNUT_MODE: ${IJNUT_MODE:-selfhost}
+      IJNUT_PLAN: ${IJNUT_PLAN:-free}
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_obs
       REDIS_URL: redis://redis:6379
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
@@ -76,8 +78,12 @@ services:
         required: false
     environment:
       NODE_ENV: production
+      IJNUT_MODE: ${IJNUT_MODE:-selfhost}
+      IJNUT_PLAN: ${IJNUT_PLAN:-free}
+      IJNUT_AI_DAILY_LIMIT: ${IJNUT_AI_DAILY_LIMIT:-5}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       OBSERVABILITY_API_URL: http://api:3000
+      IJNUT_PUBLIC_API_URL: ${IJNUT_PUBLIC_API_URL:-http://localhost:3000}
       OBSERVABILITY_ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}

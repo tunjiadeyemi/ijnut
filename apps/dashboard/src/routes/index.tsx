@@ -16,6 +16,7 @@ import { AgentReportCopyButton } from "@/components/AgentReportPanel";
 import { AiChatPanel } from "@/components/AiChatPanel";
 import { HoverIconLabel } from "@/components/HoverIconLabel";
 import { OverviewCharts } from "@/components/OverviewCharts";
+import { UpgradeGate } from "@/components/UpgradeGate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,6 +39,7 @@ import {
   fetchRequests,
   fetchStressReports,
   getAuthState,
+  getDashboardConfig,
   logout,
   runStressTest,
   type OverviewResponse,
@@ -45,8 +47,6 @@ import {
   type RouteAggregate,
   type StressReport,
 } from "@/lib/observability.functions";
-
-const DEMO_API_BASE = "http://127.0.0.1:3000";
 
 /** Paths that are safe / useful to hammer on the Nest demo API. */
 const DEMO_PATHS = [
@@ -82,12 +82,13 @@ export const Route = createFileRoute("/")({
     }
   },
   loader: async () => {
-    const [overview, requests, stress] = await Promise.all([
+    const [overview, requests, stress, config] = await Promise.all([
       fetchOverview(),
       fetchRequests({ data: { limit: 40 } }),
       fetchStressReports(),
+      getDashboardConfig(),
     ]);
-    return { overview, requests, stress };
+    return { overview, requests, stress, config };
   },
 });
 
@@ -95,6 +96,7 @@ function DashboardPage() {
   const initial = Route.useLoaderData();
   const navigate = useNavigate();
   const toast = useToast();
+  const demoApiBase = initial.config.publicApiUrl;
   const [overview, setOverview] = useState<OverviewResponse>(initial.overview);
   const [requests, setRequests] = useState<RequestRecord[]>(
     initial.requests.requests,
@@ -110,10 +112,11 @@ function DashboardPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showToolTraffic, setShowToolTraffic] = useState(false);
   const [useDemoApi, setUseDemoApi] = useState(true);
+  const [stressGate, setStressGate] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const [form, setForm] = useState({
-    target: DEMO_API_BASE,
+    target: demoApiBase,
     method: "GET",
     path: "/ping",
     connections: "20",
@@ -140,7 +143,7 @@ function DashboardPage() {
     const match = DEMO_PATHS.find((p) => p.path === path) ?? DEMO_PATHS[0];
     setForm((f) => ({
       ...f,
-      target: DEMO_API_BASE,
+      target: demoApiBase,
       path: match.path,
       method: match.method,
     }));
@@ -257,14 +260,22 @@ function DashboardPage() {
         },
       });
 
-      if ("error" in result && result.error) {
-        toast.error(
-          result.status === 429
-            ? "Too many stress tests. Wait about a minute and try again."
-            : result.message,
-          result.status === 429 ? "Slow down" : "Load test failed",
-        );
+      if (result && typeof result === "object" && "error" in result && result.error) {
+        const failed = result as {
+          error: true;
+          status: number;
+          message: string;
+        };
+        if (failed.status === 429) {
+          setStressGate(
+            "Stress rate limit hit. On IJNUT Cloud free, wait a minute — or upgrade / self-host for higher caps.",
+          );
+          toast.error("Too many stress tests. Wait about a minute.", "Slow down");
+        } else {
+          toast.error(failed.message, "Load test failed");
+        }
       } else {
+        setStressGate(null);
         setLastReport(result as StressReport);
         toast.success("Load test finished.", "Done");
       }
@@ -577,6 +588,14 @@ function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {stressGate ? (
+            <UpgradeGate
+              title="Stress limited"
+              message={stressGate}
+              cta={initial.config.cta}
+            />
+          ) : null}
 
           <form onSubmit={onRunStress} className="flex flex-col gap-3">
             {useDemoApi ? (

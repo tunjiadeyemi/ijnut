@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Gauge, Loader2, Send, Sparkles, Wrench } from "lucide-react";
 import { HoverIconLabel } from "@/components/HoverIconLabel";
+import { UpgradeGate } from "@/components/UpgradeGate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,9 +19,12 @@ type Props = {
   latestStress?: StressReport | null;
 };
 
+type AiStatus = Awaited<ReturnType<typeof getAiStatus>>;
+
 export function AiChatPanel({ latestRequest, latestStress }: Props) {
   const toast = useToast();
-  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<AiStatus | null>(null);
+  const [gateMessage, setGateMessage] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [messages, setMessages] = useState<AiChatTurn[]>([]);
@@ -28,8 +32,30 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
 
   useEffect(() => {
     void getAiStatus()
-      .then((s) => setConfigured(s.configured))
-      .catch(() => setConfigured(false));
+      .then((s) => {
+        setStatus(s);
+        if (s.gated && s.remaining === 0) {
+          setGateMessage(
+            `Free Cloud AI limit reached (${s.limit}/day). Upgrade or self-host with your own Gemini key.`,
+          );
+        }
+      })
+      .catch(() =>
+        setStatus({
+          configured: false,
+          mode: "selfhost",
+          plan: "free",
+          gated: false,
+          limit: null,
+          remaining: null,
+          cta: {
+            upgrade:
+              "Unlock higher AI and stress limits on IJNUT Cloud (set IJNUT_PLAN=pro).",
+            selfHost:
+              "Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.",
+          },
+        }),
+      );
   }, []);
 
   useEffect(() => {
@@ -47,8 +73,13 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     const trimmed = message.trim();
     if (!trimmed || pending) return;
 
-    if (configured === false) {
+    if (status?.configured === false) {
       toast.error("Add GEMINI_API_KEY to .env", "AI off");
+      return;
+    }
+
+    if (gateMessage && status?.gated && status.remaining === 0) {
+      toast.error("AI daily limit reached", "Upgrade or self-host");
       return;
     }
 
@@ -71,12 +102,37 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
       });
 
       if (!result.ok) {
+        if ("gated" in result && result.gated) {
+          setGateMessage(result.message);
+          setStatus((prev) =>
+            prev
+              ? { ...prev, remaining: 0, cta: result.cta ?? prev.cta }
+              : prev,
+          );
+          toast.error("AI limit reached", "Upgrade or self-host");
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: result.message },
+          ]);
+          return;
+        }
         toast.error(result.message, "AI error");
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: result.message },
         ]);
         return;
+      }
+
+      if (result.remaining != null) {
+        setStatus((prev) =>
+          prev ? { ...prev, remaining: result.remaining } : prev,
+        );
+        if (result.remaining === 0 && status?.gated) {
+          setGateMessage(
+            `Free Cloud AI limit reached (${status.limit}/day). Upgrade or self-host with your own Gemini key.`,
+          );
+        }
       }
 
       setMessages((prev) => [
@@ -90,12 +146,23 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     }
   }
 
+  const configured = status?.configured;
+  const remainingLabel =
+    status?.gated && status.remaining != null
+      ? `${status.remaining} left today`
+      : null;
+
   return (
     <Card className="flex h-full min-h-0 flex-col border-0 bg-transparent shadow-none">
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 border-b border-border px-0 pb-3 pt-0">
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <Bot className="text-primary size-4" />
           Ask
+          {remainingLabel ? (
+            <span className="text-muted-foreground font-normal">
+              · {remainingLabel}
+            </span>
+          ) : null}
         </CardTitle>
         <div className="flex items-center gap-0.5">
           <Button
@@ -154,6 +221,10 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3 px-0 pb-0">
         {configured === false ? (
           <p className="text-muted-foreground text-xs">Set GEMINI_API_KEY</p>
+        ) : null}
+
+        {gateMessage && status?.cta ? (
+          <UpgradeGate message={gateMessage} cta={status.cta} />
         ) : null}
 
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
