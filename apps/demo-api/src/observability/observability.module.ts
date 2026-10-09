@@ -3,6 +3,7 @@ import { MetricsStore } from "@api-obs/observability";
 import { METRICS_STORE } from "./metrics.token";
 import { ObservabilityController } from "./observability.controller";
 import { AdminAuthGuard } from "./admin-auth.guard";
+import { AiService } from "./ai.service";
 import { StressRateLimitGuard } from "./stress-rate-limit.guard";
 
 @Module({
@@ -17,6 +18,7 @@ import { StressRateLimitGuard } from "./stress-rate-limit.guard";
     },
     AdminAuthGuard,
     StressRateLimitGuard,
+    AiService,
   ],
   exports: [METRICS_STORE],
 })

@@ -38,14 +38,29 @@ export function getAiFreeLimit(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
 }
 
+/** Ensure absolute URL — host-only Railway values need https:// */
+function normalizeBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/$/, '');
+  if (!trimmed) return 'http://127.0.0.1:3000';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (
+    trimmed.startsWith('127.') ||
+    trimmed.startsWith('localhost') ||
+    trimmed.startsWith('0.0.0.0')
+  ) {
+    return `http://${trimmed}`;
+  }
+  return `https://${trimmed}`;
+}
+
 /** URL stress / Demo API UI should use (public hostname, not docker-internal). */
 export function getPublicApiUrl(): string {
-  return (
+  return normalizeBaseUrl(
     process.env.IJNUT_PUBLIC_API_URL?.trim() ||
-    process.env.DEMO_PUBLIC_URL?.trim() ||
-    process.env.OBSERVABILITY_API_URL?.trim() ||
-    'http://127.0.0.1:3000'
-  ).replace(/\/$/, '');
+      process.env.DEMO_PUBLIC_URL?.trim() ||
+      process.env.OBSERVABILITY_API_URL?.trim() ||
+      'http://127.0.0.1:3000'
+  );
 }
 
 export function isAiGated(): boolean {

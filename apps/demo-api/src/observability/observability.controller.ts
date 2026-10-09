@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Inject,
   NotFoundException,
   Param,
@@ -18,12 +19,16 @@ import {
   type StressRequestBody,
 } from "@api-obs/observability";
 import { AdminAuthGuard } from "./admin-auth.guard";
+import { AiService, type AiChatBody } from "./ai.service";
 import { METRICS_STORE } from "./metrics.token";
 import { StressRateLimitGuard } from "./stress-rate-limit.guard";
 
 @Controller("observability")
 export class ObservabilityController {
-  constructor(@Inject(METRICS_STORE) private readonly store: MetricsStore) {}
+  constructor(
+    @Inject(METRICS_STORE) private readonly store: MetricsStore,
+    private readonly ai: AiService,
+  ) {}
 
   /** Public liveness for the observability surface. */
   @Get("health")
@@ -84,6 +89,33 @@ export class ObservabilityController {
     const report = this.store.getStressReport(id);
     if (!report) throw new NotFoundException(`Unknown stress id: ${id}`);
     return report;
+  }
+
+  /**
+   * AI status — admin token required so a public API URL alone cannot probe Gemini.
+   * Cloud quota uses better-auth session token (X-Ijnut-Session-Token).
+   */
+  @Get("ai/status")
+  @UseGuards(AdminAuthGuard)
+  async aiStatus(
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+  ) {
+    const access = await this.ai.resolveAccess(sessionToken);
+    return this.ai.status(access);
+  }
+
+  /**
+   * Gemini chat — enforced on the API.
+   * Requires ADMIN_TOKEN (dashboard BFF only). Cloud free also requires a valid
+   * better-auth session + increments user.aiUsed in Postgres.
+   */
+  @Post("ai")
+  @UseGuards(AdminAuthGuard)
+  async askAi(
+    @Body() body: AiChatBody,
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+  ) {
+    return this.ai.chat(this.store, body ?? { message: "" }, sessionToken);
   }
 
   @Post("stress")

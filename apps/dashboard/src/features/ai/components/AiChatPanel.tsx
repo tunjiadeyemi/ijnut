@@ -77,7 +77,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     if (!trimmed || pending || locked) return;
 
     if (status?.configured === false) {
-      toast.error('Add GEMINI_API_KEY to .env', 'AI off');
+      toast.error('Add GEMINI_API_KEY on the API (.env / Railway)', 'AI off');
       return;
     }
 

@@ -9,8 +9,23 @@ import { config as loadEnv } from 'dotenv';
 loadEnv({ path: resolve(process.cwd(), '../../.env') });
 loadEnv({ path: resolve(process.cwd(), '.env') });
 
+/** Ensure absolute URL — host-only Railway values need https:// */
+export function normalizeBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/$/, '');
+  if (!trimmed) return 'http://127.0.0.1:3000';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (
+    trimmed.startsWith('127.') ||
+    trimmed.startsWith('localhost') ||
+    trimmed.startsWith('0.0.0.0')
+  ) {
+    return `http://${trimmed}`;
+  }
+  return `https://${trimmed}`;
+}
+
 export function getApiUrl(): string {
-  return (process.env.OBSERVABILITY_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
+  return normalizeBaseUrl(process.env.OBSERVABILITY_API_URL ?? 'http://127.0.0.1:3000');
 }
 
 /** Server-only token for /observability/* — never from the browser. */
