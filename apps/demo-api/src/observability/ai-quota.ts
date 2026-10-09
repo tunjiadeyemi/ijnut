@@ -1,6 +1,7 @@
 /**
  * Server-authoritative AI access for cloud freemium.
  * Quota lives in the shared better-auth Postgres `user` table.
+ * Never throws — DB failures degrade to needsAuth / deny.
  */
 import { Pool } from "pg";
 
@@ -28,7 +29,14 @@ function getPool(): Pool {
     throw new Error("DATABASE_URL is required for cloud AI quota");
   }
   if (!pool) {
-    pool = new Pool({ connectionString });
+    pool = new Pool({
+      connectionString,
+      // Railway / managed Postgres often require SSL
+      ssl: connectionString.includes("localhost") ||
+        connectionString.includes("127.0.0.1")
+        ? undefined
+        : { rejectUnauthorized: false },
+    });
   }
   return pool;
 }
@@ -55,6 +63,20 @@ function userPlan(raw: unknown): IjnutPlan {
 function userAiUsed(raw: unknown): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function guestAccess(): AiAccess {
+  return {
+    authenticated: false,
+    needsAuth: true,
+    plan: "free",
+    aiUsed: 0,
+    limit: getAiFreeLimit(),
+    remaining: 0,
+    gated: true,
+    canConsume: false,
+    userId: null,
+  };
 }
 
 /**
@@ -111,51 +133,53 @@ export async function resolveAiAccess(
     };
   }
 
-  const userId = await resolveSessionUserId(sessionToken);
-  if (!userId) {
-    return {
-      authenticated: false,
-      needsAuth: true,
-      plan: "free",
-      aiUsed: 0,
-      limit: getAiFreeLimit(),
-      remaining: 0,
-      gated: true,
-      canConsume: false,
-      userId: null,
-    };
+  let userId: string | null = null;
+  try {
+    userId = await resolveSessionUserId(sessionToken);
+  } catch (err) {
+    console.error("[ai-quota] session lookup failed", err);
+    return guestAccess();
   }
 
-  const { plan, aiUsed } = await loadUserQuota(userId);
+  if (!userId) {
+    return guestAccess();
+  }
 
-  if (plan === "pro") {
+  try {
+    const { plan, aiUsed } = await loadUserQuota(userId);
+
+    if (plan === "pro") {
+      return {
+        authenticated: true,
+        needsAuth: false,
+        plan: "pro",
+        aiUsed,
+        limit: null,
+        remaining: null,
+        gated: false,
+        canConsume: true,
+        userId,
+      };
+    }
+
+    const limit = getAiFreeLimit();
+    const remaining = Math.max(0, limit - aiUsed);
+
     return {
       authenticated: true,
       needsAuth: false,
-      plan: "pro",
+      plan: "free",
       aiUsed,
-      limit: null,
-      remaining: null,
-      gated: false,
-      canConsume: true,
+      limit,
+      remaining,
+      gated: true,
+      canConsume: remaining > 0,
       userId,
     };
+  } catch (err) {
+    console.error("[ai-quota] user quota lookup failed", err);
+    return guestAccess();
   }
-
-  const limit = getAiFreeLimit();
-  const remaining = Math.max(0, limit - aiUsed);
-
-  return {
-    authenticated: true,
-    needsAuth: false,
-    plan: "free",
-    aiUsed,
-    limit,
-    remaining,
-    gated: true,
-    canConsume: remaining > 0,
-    userId,
-  };
 }
 
 /**
@@ -165,23 +189,28 @@ export async function consumeAiMessage(
   userId: string,
   limit: number,
 ): Promise<{ aiUsed: number; remaining: number } | null> {
-  const result = await getPool().query<{ aiUsed: number }>(
-    `UPDATE "user"
-     SET "aiUsed" = COALESCE("aiUsed", 0) + 1, "updatedAt" = NOW()
-     WHERE id = $1
-       AND COALESCE(plan, 'free') <> 'pro'
-       AND COALESCE("aiUsed", 0) < $2
-     RETURNING "aiUsed"`,
-    [userId, limit],
-  );
+  try {
+    const result = await getPool().query<{ aiUsed: number }>(
+      `UPDATE "user"
+       SET "aiUsed" = COALESCE("aiUsed", 0) + 1, "updatedAt" = NOW()
+       WHERE id = $1
+         AND COALESCE(plan, 'free') <> 'pro'
+         AND COALESCE("aiUsed", 0) < $2
+       RETURNING "aiUsed"`,
+      [userId, limit],
+    );
 
-  if (result.rowCount !== 1 || !result.rows[0]) {
+    if (result.rowCount !== 1 || !result.rows[0]) {
+      return null;
+    }
+
+    const aiUsed = Number(result.rows[0].aiUsed);
+    return {
+      aiUsed,
+      remaining: Math.max(0, limit - aiUsed),
+    };
+  } catch (err) {
+    console.error("[ai-quota] consume failed", err);
     return null;
   }
-
-  const aiUsed = Number(result.rows[0].aiUsed);
-  return {
-    aiUsed,
-    remaining: Math.max(0, limit - aiUsed),
-  };
 }

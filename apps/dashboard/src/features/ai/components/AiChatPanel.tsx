@@ -31,6 +31,10 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     void getAiStatus()
       .then((s) => {
         setStatus(s);
+        if (s.statusError) {
+          setGateMessage(null);
+          return;
+        }
         if (s.needsAuth) {
           setGateMessage(s.cta.signIn);
         } else if (s.gated && s.remaining === 0) {
@@ -39,10 +43,10 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           );
         }
       })
-      .catch(() =>
+      .catch((err) =>
         setStatus({
-          configured: false,
-          mode: 'selfhost',
+          configured: null,
+          mode: 'cloud',
           authenticated: false,
           needsAuth: false,
           plan: 'free',
@@ -56,7 +60,8 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             selfHost:
               'Or self-host: docker compose up --build, set your own GEMINI_API_KEY — no IJNUT fees.',
             signIn: 'Sign in to unlock 3 free AI messages on Cloud.'
-          }
+          },
+          statusError: err instanceof Error ? err.message : 'Could not load AI status'
         })
       );
   }, []);
@@ -76,6 +81,10 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     const trimmed = message.trim();
     if (!trimmed || pending || locked) return;
 
+    if (status?.statusError) {
+      toast.error(status.statusError, 'AI status');
+      return;
+    }
     if (status?.configured === false) {
       toast.error('Add GEMINI_API_KEY on the API (.env / Railway)', 'AI off');
       return;
@@ -204,8 +213,13 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         </div>
       </CardHeader>
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 px-0 pb-0">
+        {status?.statusError ? (
+          <p className="text-destructive text-xs">AI status: {status.statusError}</p>
+        ) : null}
         {configured === false ? (
-          <p className="text-muted-foreground text-xs">Set GEMINI_API_KEY</p>
+          <p className="text-muted-foreground text-xs">
+            Set GEMINI_API_KEY on the API (Railway / demo-api env)
+          </p>
         ) : null}
 
         <div

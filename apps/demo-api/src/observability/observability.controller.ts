@@ -100,8 +100,24 @@ export class ObservabilityController {
   async aiStatus(
     @Headers("x-ijnut-session-token") sessionToken?: string,
   ) {
-    const access = await this.ai.resolveAccess(sessionToken);
-    return this.ai.status(access);
+    try {
+      const access = await this.ai.resolveAccess(sessionToken);
+      return this.ai.status(access);
+    } catch (err) {
+      console.error("[observability] ai/status failed", err);
+      // Never 500 the dashboard — degrade to signed-out cloud gate.
+      return this.ai.status({
+        authenticated: false,
+        needsAuth: true,
+        plan: "free",
+        aiUsed: 0,
+        limit: Number(process.env.IJNUT_AI_FREE_LIMIT ?? 3) || 3,
+        remaining: 0,
+        gated: true,
+        canConsume: false,
+        userId: null,
+      });
+    }
   }
 
   /**
@@ -115,7 +131,20 @@ export class ObservabilityController {
     @Body() body: AiChatBody,
     @Headers("x-ijnut-session-token") sessionToken?: string,
   ) {
-    return this.ai.chat(this.store, body ?? { message: "" }, sessionToken);
+    try {
+      return await this.ai.chat(
+        this.store,
+        body ?? { message: "" },
+        sessionToken,
+      );
+    } catch (err) {
+      console.error("[observability] ai chat failed", err);
+      return {
+        ok: false as const,
+        gated: false as const,
+        message: err instanceof Error ? err.message : "AI request failed",
+      };
+    }
   }
 
   @Post("stress")

@@ -8,6 +8,7 @@ import { authClient } from '@/features/auth/client';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
+import { PasswordInput } from '@/shared/components/ui/password-input';
 import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -170,9 +171,8 @@ export function LoginPage({ githubConfigured }: { githubConfigured: boolean }) {
               {mode !== 'forgot' ? (
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

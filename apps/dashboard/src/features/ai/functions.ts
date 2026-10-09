@@ -36,6 +36,26 @@ type ApiAiChatResult =
       };
     };
 
+export type AiStatusResult = {
+  configured: boolean | null;
+  mode: 'cloud' | 'selfhost';
+  authenticated: boolean;
+  needsAuth: boolean;
+  plan: 'free' | 'pro';
+  gated: boolean;
+  limit: number | null;
+  remaining: number | null;
+  aiUsed: number;
+  billingConfigured: boolean;
+  cta: {
+    upgrade: string;
+    selfHost: string;
+    signIn: string;
+  };
+  /** Set when the dashboard could not reach /observability/ai/status */
+  statusError?: string;
+};
+
 async function sessionTokenForApi(): Promise<string | undefined> {
   const { getSession } = await import('@/features/auth/server/session.server');
   const session = await getSession();
@@ -47,29 +67,52 @@ async function sessionTokenForApi(): Promise<string | undefined> {
  * Dashboard never calls Gemini locally — sharing the API URL alone is not enough
  * (ADMIN_TOKEN required); cloud free also needs a signed-in session.
  */
-export const getAiStatus = createServerFn({ method: 'GET' }).handler(async () => {
-  const { DEFAULT_GATE_CTA, getIjnutMode } = await import('@/features/config/server');
-  const { isBachsConfigured } = await import('@/features/billing/server/bachs.server');
+export const getAiStatus = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<AiStatusResult> => {
+    const { DEFAULT_GATE_CTA, getIjnutMode } = await import('@/features/config/server');
+    const { isBachsConfigured } = await import('@/features/billing/server/bachs.server');
 
-  const token = await sessionTokenForApi();
-  const status = await obsFetch<ApiAiStatus>('/observability/ai/status', {
-    headers: token ? { 'X-Ijnut-Session-Token': token } : {}
-  });
+    const billingConfigured = isBachsConfigured();
+    const cta = { ...DEFAULT_GATE_CTA };
 
-  return {
-    configured: status.configured,
-    mode: status.mode ?? getIjnutMode(),
-    authenticated: status.authenticated,
-    needsAuth: status.needsAuth,
-    plan: status.plan,
-    gated: status.gated,
-    limit: status.limit,
-    remaining: status.remaining,
-    aiUsed: status.aiUsed,
-    billingConfigured: isBachsConfigured(),
-    cta: { ...DEFAULT_GATE_CTA }
-  };
-});
+    try {
+      const token = await sessionTokenForApi();
+      const status = await obsFetch<ApiAiStatus>('/observability/ai/status', {
+        headers: token ? { 'X-Ijnut-Session-Token': token } : {}
+      });
+
+      return {
+        configured: status.configured,
+        mode: status.mode ?? getIjnutMode(),
+        authenticated: status.authenticated,
+        needsAuth: status.needsAuth,
+        plan: status.plan,
+        gated: status.gated,
+        limit: status.limit,
+        remaining: status.remaining,
+        aiUsed: status.aiUsed,
+        billingConfigured,
+        cta
+      };
+    } catch (err) {
+      return {
+        configured: null,
+        mode: getIjnutMode(),
+        authenticated: false,
+        needsAuth: false,
+        plan: 'free',
+        gated: false,
+        limit: null,
+        remaining: null,
+        aiUsed: 0,
+        billingConfigured,
+        cta,
+        statusError:
+          err instanceof Error ? err.message : 'Could not reach API AI status'
+      };
+    }
+  }
+);
 
 export const askObservabilityAi = createServerFn({ method: 'POST' })
   .validator((data: AiChatInput) => data)

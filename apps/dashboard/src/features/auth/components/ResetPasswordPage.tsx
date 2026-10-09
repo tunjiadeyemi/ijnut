@@ -4,9 +4,9 @@ import { Link, useNavigate } from '@tanstack/react-router';
 
 import { authClient } from '@/features/auth/client';
 
-import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
+import { PasswordInput } from '@/shared/components/ui/password-input';
 import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -74,9 +74,8 @@ export function ResetPasswordPage({ token }: { token: string }) {
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -86,9 +85,8 @@ export function ResetPasswordPage({ token }: { token: string }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm">Confirm</Label>
-                <Input
+                <PasswordInput
                   id="confirm"
-                  type="password"
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
