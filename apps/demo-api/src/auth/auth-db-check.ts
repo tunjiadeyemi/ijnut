@@ -1,32 +1,34 @@
-import { Pool } from "pg";
+import { getMigrations } from "better-auth/db/migration";
+import { auth } from "./auth";
 
-/** Fail fast / log clearly if Railway Postgres is missing auth tables. */
-export async function checkAuthDatabase(): Promise<void> {
-  const connectionString =
-    process.env.AUTH_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim();
-  if (!connectionString) {
-    console.error("[auth] DATABASE_URL is not set — GitHub/email sign-in will 500");
-    return;
-  }
-
-  const local =
-    connectionString.includes("localhost") ||
-    connectionString.includes("127.0.0.1");
-  const pool = new Pool({
-    connectionString,
-    ssl: local ? undefined : { rejectUnauthorized: false },
-  });
-
+/**
+ * Create better-auth tables/columns on startup if missing (Railway-friendly).
+ */
+export async function ensureAuthSchema(): Promise<void> {
   try {
-    await pool.query(`SELECT 1 FROM "user" LIMIT 1`);
-    await pool.query(`SELECT 1 FROM session LIMIT 1`);
-    console.info("[auth] Postgres auth tables OK");
+    const { toBeCreated, toBeAdded, runMigrations } = await getMigrations(
+      auth.options,
+    );
+
+    if (toBeCreated.length === 0 && toBeAdded.length === 0) {
+      console.info("[auth] Postgres schema up to date");
+      return;
+    }
+
+    console.info(
+      "[auth] Migrating tables:",
+      toBeCreated.map((t) => t.table).join(", ") || "(none)",
+    );
+    console.info(
+      "[auth] Migrating columns:",
+      toBeAdded.map((t) => t.table).join(", ") || "(none)",
+    );
+    await runMigrations();
+    console.info("[auth] Migrations applied");
   } catch (err) {
     console.error(
-      "[auth] Postgres auth schema missing or unreachable. Run: pnpm --filter dashboard auth:migrate (against this DATABASE_URL).",
+      "[auth] Schema migrate failed — GitHub/email sign-in will 500 until DATABASE_URL is reachable and migrate succeeds.",
       err,
     );
-  } finally {
-    await pool.end().catch(() => undefined);
   }
 }

@@ -6,7 +6,7 @@ import { NestFactory } from "@nestjs/core";
 import { ExpressAdapter } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { auth } from "./auth/auth";
-import { checkAuthDatabase } from "./auth/auth-db-check";
+import { ensureAuthSchema } from "./auth/auth-db-check";
 
 // Local monorepo .env only — never override Compose/Railway-injected vars.
 config({
@@ -54,7 +54,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  await checkAuthDatabase();
+  await ensureAuthSchema();
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
