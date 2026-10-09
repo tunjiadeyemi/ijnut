@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
@@ -20,8 +21,10 @@ export interface ShortenResult {
 
 @Injectable()
 export class ShortenerService implements OnModuleInit, OnModuleDestroy {
+  private readonly log = new Logger(ShortenerService.name);
   private pool!: Pool;
-  private redis!: Redis;
+  private redis: Redis | null = null;
+  private redisReady = false;
 
   async onModuleInit(): Promise<void> {
     const databaseUrl =
@@ -30,12 +33,39 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
     const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 
     this.pool = new Pool({ connectionString: databaseUrl });
-    this.redis = new Redis(redisUrl, {
-      maxRetriesPerRequest: 3,
+
+    // Avoid crashing the process on Redis blips (ioredis emits 'error').
+    const client = new Redis(redisUrl, {
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
       lazyConnect: true,
+      retryStrategy: (times) => (times > 8 ? null : Math.min(times * 200, 2000)),
+    });
+    client.on("error", (err) => {
+      this.redisReady = false;
+      this.log.warn(`Redis error: ${err.message}`);
+    });
+    client.on("connect", () => {
+      this.redisReady = true;
     });
 
-    await this.redis.connect();
+    try {
+      await client.connect();
+      this.redis = client;
+      this.redisReady = true;
+      this.log.log(`Redis connected (${safeRedisHost(redisUrl)})`);
+    } catch (err) {
+      this.redisReady = false;
+      await client.quit().catch(() => undefined);
+      this.redis = null;
+      this.log.warn(
+        `Redis unavailable at ${safeRedisHost(redisUrl)} — cache bypassed. ` +
+          `In Docker Compose set REDIS_URL=redis://redis:6379 (not 127.0.0.1). ` +
+          `On Railway/Render attach a Redis plugin and set REDIS_URL.`,
+      );
+      if (err instanceof Error) this.log.warn(err.message);
+    }
+
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS links (
         code TEXT PRIMARY KEY,
@@ -89,15 +119,19 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
   ): Promise<{ url: string; cacheHit: boolean }> {
     const cacheKey = `${CACHE_PREFIX}${code}`;
 
-    if (!options.bypassCache) {
-      const cached = await withSpan(
-        "redis.get",
-        "cache",
-        () => this.redis.get(cacheKey),
-        { key: "short:*" },
-      );
-      if (cached) {
-        return { url: cached, cacheHit: true };
+    if (!options.bypassCache && this.redisReady && this.redis) {
+      try {
+        const cached = await withSpan(
+          "redis.get",
+          "cache",
+          () => this.redis!.get(cacheKey),
+          { key: "short:*" },
+        );
+        if (cached) {
+          return { url: cached, cacheHit: true };
+        }
+      } catch {
+        this.redisReady = false;
       }
     }
 
@@ -116,21 +150,30 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException(`Unknown code: ${code}`);
     }
 
-    if (!options.bypassCache) {
-      await withSpan(
-        "redis.setex",
-        "cache",
-        () => this.redis.setex(cacheKey, CACHE_TTL_SEC, row.url),
-        { key: "short:*" },
-      );
+    if (!options.bypassCache && this.redisReady && this.redis) {
+      try {
+        await withSpan(
+          "redis.setex",
+          "cache",
+          () => this.redis!.setex(cacheKey, CACHE_TTL_SEC, row.url),
+          { key: "short:*" },
+        );
+      } catch {
+        this.redisReady = false;
+      }
     }
     return { url: row.url, cacheHit: false };
   }
 
   async bustCache(code: string): Promise<void> {
-    await withSpan("redis.del", "cache", () =>
-      this.redis.del(`${CACHE_PREFIX}${code}`),
-    );
+    if (!this.redisReady || !this.redis) return;
+    try {
+      await withSpan("redis.del", "cache", () =>
+        this.redis!.del(`${CACHE_PREFIX}${code}`),
+      );
+    } catch {
+      this.redisReady = false;
+    }
   }
 
   async delete(code: string): Promise<void> {
@@ -143,8 +186,15 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
     if (result.rowCount === 0) {
       throw new NotFoundException(`Unknown code: ${code}`);
     }
-    await withSpan("redis.del", "cache", () =>
-      this.redis.del(`${CACHE_PREFIX}${code}`),
-    );
+    await this.bustCache(code);
+  }
+}
+
+function safeRedisHost(redisUrl: string): string {
+  try {
+    const u = new URL(redisUrl);
+    return `${u.hostname}:${u.port || "6379"}`;
+  } catch {
+    return "(invalid REDIS_URL)";
   }
 }

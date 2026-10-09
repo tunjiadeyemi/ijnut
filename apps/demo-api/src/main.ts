@@ -3,8 +3,11 @@ import { resolve } from "node:path";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 
-// Monorepo root .env (cwd is apps/demo-api when using nest start)
-config({ path: resolve(process.cwd(), "../../.env") });
+// Local monorepo .env only — never override Compose/Railway-injected vars.
+config({
+  path: resolve(process.cwd(), "../../.env"),
+  override: false,
+});
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

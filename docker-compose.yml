@@ -39,6 +39,7 @@ services:
       PORT: 3000
       IJNUT_MODE: ${IJNUT_MODE:-selfhost}
       IJNUT_PLAN: ${IJNUT_PLAN:-free}
+      # Service DNS names — do not use 127.0.0.1 from host .env inside the container
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_obs
       REDIS_URL: redis://redis:6379
       ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
