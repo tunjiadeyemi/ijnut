@@ -69,14 +69,55 @@ async function bachsFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    const message =
-      body && typeof body === 'object' && 'message' in body
-        ? String((body as { message: unknown }).message)
-        : `Bachs error ${res.status}`;
+    const message = formatBachsError(body, res.status);
     throw new Error(message);
   }
 
   return body as T;
+}
+
+function formatBachsError(body: unknown, status: number): string {
+  if (body && typeof body === 'object') {
+    const o = body as Record<string, unknown>;
+    const detail = o.detail ?? o.message;
+    if (typeof detail === 'string' && detail.trim()) {
+      const code = typeof o.error_code === 'string' ? ` (${o.error_code})` : '';
+      return `Bachs: ${detail}${code}`;
+    }
+  }
+  return `Bachs error ${status}`;
+}
+
+/** Bachs rejects loopback success/cancel URLs — prefer a public dashboard origin. */
+function checkoutReturnBaseUrl(): string {
+  const candidates = [
+    process.env.BACHS_RETURN_URL?.trim(),
+    process.env.IJNUT_PUBLIC_DASHBOARD_URL?.trim(),
+    process.env.BETTER_AUTH_URL?.trim()
+  ].filter(Boolean) as string[];
+
+  for (const raw of candidates) {
+    const base = raw.replace(/\/$/, '');
+    try {
+      const u = new URL(base);
+      const host = u.hostname.toLowerCase();
+      if (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '0.0.0.0' ||
+        host.endsWith('.local')
+      ) {
+        continue;
+      }
+      return base;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(
+    'Bachs needs a public success/cancel URL. Set IJNUT_PUBLIC_DASHBOARD_URL or BACHS_RETURN_URL to your hosted dashboard (https://…), not localhost.'
+  );
 }
 
 export async function createProCheckout(opts: {
@@ -87,7 +128,9 @@ export async function createProCheckout(opts: {
   const productId = process.env.BACHS_PRODUCT_ID?.trim();
   if (!productId) throw new Error('BACHS_PRODUCT_ID is not configured');
 
-  const base = getDashboardBaseUrl();
+  const base = checkoutReturnBaseUrl();
+  // Recurring products require a customer identity (email).
+  const name = opts.name?.trim();
   const session = await bachsFetch<{ checkout_url?: string }>(
     '/v1/checkout-sessions',
     {
@@ -96,7 +139,7 @@ export async function createProCheckout(opts: {
         product_cart: [{ product_id: productId, quantity: 1 }],
         customer: {
           email: opts.email,
-          ...(opts.name ? { name: opts.name } : {})
+          ...(name ? { name } : {})
         },
         success_url: `${base}/?checkout=success`,
         cancel_url: `${base}/?checkout=cancel`,
