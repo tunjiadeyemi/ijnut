@@ -1,26 +1,29 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-import { ToastProvider } from "@/components/ui/toast";
-import appCss from "../styles.css?url";
+import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+
+import appCss from '../styles.css?url';
+import { NotFound } from '@/shared/components/NotFound';
+import { ToastProvider } from '@/shared/components/ui/toast';
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
-      { charSet: "utf-8" },
+      { charSet: 'utf-8' },
       {
-        name: "viewport",
-        content: "width=device-width, initial-scale=1",
+        name: 'viewport',
+        content: 'width=device-width, initial-scale=1'
       },
-      { title: "IJNUT" },
+      { title: 'IJNUT' }
     ],
     links: [
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap",
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap'
       },
-      { rel: "stylesheet", href: appCss },
-    ],
+      { rel: 'stylesheet', href: appCss }
+    ]
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFound
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
