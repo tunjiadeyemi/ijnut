@@ -7,10 +7,17 @@ import { ExpressAdapter } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { auth } from "./auth/auth";
 import { ensureAuthSchema } from "./auth/auth-db-check";
+import { mountBachsWebhook } from "./billing/mount-bachs-webhook";
 
-// Local monorepo .env only — never override Compose/Railway-injected vars.
+// Env load order (never override Compose/Railway-injected vars):
+// 1) repo-root .env (monorepo convenience)
+// 2) apps/demo-api/.env (preferred for this service)
 config({
   path: resolve(process.cwd(), "../../.env"),
+  override: false,
+});
+config({
+  path: resolve(process.cwd(), ".env"),
   override: false,
 });
 
@@ -42,6 +49,9 @@ async function bootstrap() {
       }
     });
   });
+
+  // Bachs webhook needs raw body for HMAC — before express.json().
+  mountBachsWebhook(server);
 
   server.use(express.json({ limit: "2mb" }));
   server.use(express.urlencoded({ extended: true }));

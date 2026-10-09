@@ -43,7 +43,10 @@ api-observability-lite/
 ## Quickstart — self-host (recommended)
 
 ```bash
-cp .env.example .env          # set GEMINI_API_KEY if you want AI
+cp apps/demo-api/.env.example apps/demo-api/.env
+cp apps/dashboard/.env.example apps/dashboard/.env
+# or: cp .env.example .env  (combined local file)
+# set GEMINI_API_KEY on the API if you want AI
 docker compose up --build
 ```
 
@@ -66,8 +69,10 @@ pnpm --filter dashboard auth:migrate   # better-auth tables (once)
 
 ```bash
 pnpm install
-cp .env.example .env
+cp apps/demo-api/.env.example apps/demo-api/.env
+cp apps/dashboard/.env.example apps/dashboard/.env
 pnpm docker:up                 # postgres :5433 + redis :6379
+pnpm --filter dashboard auth:migrate   # once (or API auto-migrates on boot)
 pnpm dev
 # API → :3000   Dashboard → :3001
 ```
@@ -78,12 +83,12 @@ When a public API is deployed (VPS/PaaS running this Compose stack):
 
 ```bash
 pnpm install
-cp .env.example .env
+cp apps/dashboard/.env.example apps/dashboard/.env
 # Point at the hosted API (example — replace with the real URL when live)
 # OBSERVABILITY_API_URL=https://api.ijnut.example
 # IJNUT_PUBLIC_API_URL=https://api.ijnut.example
+# OBSERVABILITY_ADMIN_TOKEN=<same as API ADMIN_TOKEN>
 # IJNUT_MODE=cloud
-# IJNUT_PLAN=free
 pnpm --filter dashboard dev
 ```
 
@@ -128,28 +133,26 @@ Stress runner (inside demo-api)
 
 ## Env vars
 
-See [`.env.example`](./.env.example). Important ones:
+Per service (preferred):
 
-| Variable | Purpose |
-|----------|---------|
-| `IJNUT_MODE` | `selfhost` (default) or `cloud` |
-| `IJNUT_PLAN` | `free` or `pro` (cloud AI/stress limits) |
-| `IJNUT_AI_FREE_LIMIT` | Lifetime free Gemini chats per signed-in Cloud user (default `3`) |
-| `IJNUT_PUBLIC_API_URL` | Public API URL for Demo stress targets |
-| `ADMIN_TOKEN` / `OBSERVABILITY_ADMIN_TOKEN` | Protects `/observability/*` (server BFF only) |
-| `OBSERVABILITY_API_URL` | Dashboard → API base URL (`http://api:3000` in Compose) |
-| `DATABASE_URL` | Postgres for shortener + better-auth (host port **5433** with infra-only compose) |
-| `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` | Auth crypto + public dashboard URL |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Optional GitHub OAuth |
-| `RESEND_API_KEY` | Optional password-reset email (else link is logged) |
-| `BACHS_SECRET_KEY` / `BACHS_PRODUCT_ID` / `BACHS_WEBHOOK_SECRET` | Cloud Pro checkout via [Bachs](https://bachs.io/) (optional) |
-| `REDIS_URL` | Redis for redirect cache |
-| `STRESS_ALLOWLIST` | Hosts stress may target |
-| `STRESS_MAX_CONNECTIONS` / `STRESS_MAX_DURATION_SEC` | Safety caps (cloud free defaults lower if unset) |
-| `GEMINI_API_KEY` | AI chat (self-host: yours; cloud: operator’s, gated) |
-| `COOKIE_SECURE` | Set `true` only behind HTTPS |
+- [`apps/demo-api/.env.example`](./apps/demo-api/.env.example) — API  
+- [`apps/dashboard/.env.example`](./apps/dashboard/.env.example) — dashboard BFF  
 
-**Never** put the admin token or auth secrets in `VITE_*` / public client env. `plan` / `aiRemaining` are authorized on the server only.
+Optional combined local file: [`.env.example`](./.env.example).
+
+| Variable | Where | Purpose |
+|----------|--------|---------|
+| `ADMIN_TOKEN` | API | Service key for `/observability/*` |
+| `OBSERVABILITY_ADMIN_TOKEN` | Dashboard | Same value as `ADMIN_TOKEN` |
+| `OBSERVABILITY_API_URL` | Dashboard | API base URL |
+| `BETTER_AUTH_SECRET` | API only | Signs session cookies (not a user password) |
+| `BETTER_AUTH_URL` | Both | Public **dashboard** origin (OAuth + cookies) |
+| `DATABASE_URL` / `REDIS_URL` | API | Postgres + Redis |
+| `GEMINI_*` / `BACHS_*` / `GITHUB_*` | API | AI, billing, OAuth |
+| `IJNUT_MODE` / `IJNUT_PLAN` | Both (API enforces) | `cloud` vs `selfhost` freemium |
+| `COOKIE_SECURE` | Dashboard | `true` only behind HTTPS |
+
+**Never** put admin/auth secrets in `VITE_*`. `plan` / `aiRemaining` are authorized on the API only.
 
 ## Demo tips
 

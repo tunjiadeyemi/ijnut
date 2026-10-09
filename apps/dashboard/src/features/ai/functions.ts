@@ -72,7 +72,7 @@ export const getAiStatus = createServerFn({ method: 'GET' }).handler(
     const { DEFAULT_GATE_CTA, getIjnutMode } = await import('@/features/config/server');
     const { isBachsConfigured } = await import('@/features/billing/server/bachs.server');
 
-    const billingConfigured = isBachsConfigured();
+    const billingConfigured = await isBachsConfigured();
     const cta = { ...DEFAULT_GATE_CTA };
 
     try {

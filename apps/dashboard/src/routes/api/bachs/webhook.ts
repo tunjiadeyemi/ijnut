@@ -1,49 +1,41 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { getApiUrl } from '@/shared/api/client.server';
+
+/**
+ * Optional BFF proxy — prefer pointing Bachs at the API:
+ *   https://<demo-api>/api/bachs/webhook
+ * This forwards so an old dashboard webhook URL still works.
+ */
 export const Route = createFileRoute('/api/bachs/webhook')({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
-        const { handleBachsEvent, verifyBachsSignature } = await import(
-          '@/features/billing/server/bachs.server'
-        );
-
-        if (
-          !process.env.BACHS_WEBHOOK_SECRET?.trim() &&
-          !process.env.BACHS_SECRET_KEY?.trim() &&
-          !process.env.BACHS_API_KEY?.trim()
-        ) {
-          return new Response('Bachs secrets missing', { status: 500 });
+        const rawBody = await request.arrayBuffer();
+        const headers = new Headers();
+        for (const name of [
+          'content-type',
+          'x-bachs-signature',
+          'x-bachs-signature-v2',
+          'x-bachs-timestamp'
+        ]) {
+          const v = request.headers.get(name);
+          if (v) headers.set(name, v);
         }
 
-        const rawBody = await request.text();
-        const ok = verifyBachsSignature({
-          rawBody,
-          signatureHeader: request.headers.get('x-bachs-signature'),
-          signatureV2Header: request.headers.get('x-bachs-signature-v2'),
-          timestampHeader: request.headers.get('x-bachs-timestamp')
+        const upstream = await fetch(`${getApiUrl()}/api/bachs/webhook`, {
+          method: 'POST',
+          headers,
+          body: rawBody
         });
 
-        if (!ok) {
-          console.error('[bachs] webhook signature mismatch');
-          return new Response('Invalid signature', { status: 400 });
-        }
-
-        let event: { id?: string; type: string; data?: Record<string, unknown> };
-        try {
-          event = JSON.parse(rawBody) as typeof event;
-        } catch {
-          return new Response('Invalid JSON', { status: 400 });
-        }
-
-        try {
-          await handleBachsEvent(event);
-        } catch (err) {
-          console.error('[bachs] webhook handler failed', err);
-          return new Response('Webhook handler failed', { status: 500 });
-        }
-
-        return Response.json({ received: true });
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: {
+            'content-type':
+              upstream.headers.get('content-type') ?? 'application/json'
+          }
+        });
       }
     }
   }
