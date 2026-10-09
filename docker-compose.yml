@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: api_obs
+    ports:
+      # Host 5433 — avoid clashing with other local Postgres on 5432
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d api_obs"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/demo-api/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_obs
+      REDIS_URL: redis://redis:6379
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
+      DEMO_PUBLIC_URL: ${DEMO_PUBLIC_URL:-http://localhost:3000}
+      STRESS_ALLOWLIST: ${STRESS_ALLOWLIST:-127.0.0.1,localhost,api}
+      STRESS_MAX_CONNECTIONS: ${STRESS_MAX_CONNECTIONS:-100}
+      STRESS_MAX_DURATION_SEC: ${STRESS_MAX_DURATION_SEC:-60}
+      STRESS_RATE_LIMIT_PER_MIN: ${STRESS_RATE_LIMIT_PER_MIN:-1}
+      DEMO_USER_API_KEY: ${DEMO_USER_API_KEY:-demo-user}
+      SHORTEN_RATE_LIMIT_PER_MIN: ${SHORTEN_RATE_LIMIT_PER_MIN:-10}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    ports:
+      - "3001:3001"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OBSERVABILITY_API_URL: http://api:3000
+      OBSERVABILITY_ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
