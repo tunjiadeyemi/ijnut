@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Gauge, Loader2, Send, Sparkles, Wrench } from 'lucide-react';
+import { Bot, Gauge, Loader2, MessageSquarePlus, Send, Sparkles, Wrench } from 'lucide-react';
 
-import type { RequestRecord, StressReport } from '@/shared/api/types';
+import type { AiConversation, RequestRecord, StressReport } from '@/shared/api/types';
 import {
   askObservabilityAi,
+  createAiConversation,
   getAiHistory,
   getAiStatus,
+  listAiConversations,
   type AiChatTurn
 } from '@/features/ai/functions';
 
@@ -23,6 +25,19 @@ type Props = {
 
 type AiStatus = Awaited<ReturnType<typeof getAiStatus>>;
 
+function conversationLabel(c: AiConversation): string {
+  if (c.title?.trim()) return c.title.trim();
+  try {
+    const d = new Date(c.updatedAt);
+    if (!Number.isNaN(d.getTime())) {
+      return `Chat · ${d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+    }
+  } catch {
+    // ignore
+  }
+  return 'New chat';
+}
+
 export function AiChatPanel({ latestRequest, latestStress }: Props) {
   const toast = useToast();
   const [status, setStatus] = useState<AiStatus | null>(null);
@@ -30,7 +45,36 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [messages, setMessages] = useState<AiChatTurn[]>([]);
+  const [conversations, setConversations] = useState<AiConversation[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  async function loadConversation(apiScope: string, id: string) {
+    const hist = await getAiHistory({
+      data: { apiScope, conversationId: id }
+    });
+    if (hist.ok) {
+      setConversationId(hist.conversationId ?? id);
+      setMessages(hist.messages);
+    }
+  }
+
+  async function bootstrapConversations(apiScope: string) {
+    let listed = await listAiConversations({ data: { apiScope } });
+    if (!listed.ok) return;
+
+    let list = listed.conversations;
+    if (list.length === 0) {
+      const created = await createAiConversation({ data: { apiScope } });
+      if (!created.ok || !('conversation' in created)) return;
+      list = [created.conversation];
+    }
+
+    setConversations(list);
+    const active = list[0];
+    setConversationId(active.id);
+    await loadConversation(apiScope, active.id);
+  }
 
   useEffect(() => {
     void getAiStatus()
@@ -49,11 +93,8 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             `Free AI limit reached (${s.limit} messages). Subscribe or self-host with your own API key.`
           );
         }
-        if (s.authenticated) {
-          const hist = await getAiHistory();
-          if (hist.ok && hist.messages.length > 0) {
-            setMessages(hist.messages);
-          }
+        if (s.authenticated && s.mode === 'cloud') {
+          await bootstrapConversations(s.apiScope);
         }
       })
       .catch((err) =>
@@ -68,6 +109,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           remaining: null,
           aiUsed: 0,
           billingConfigured: false,
+          apiScope: 'legacy',
           cta: {
             upgrade: 'Subscribe for unlimited Cloud AI + chat memory via Bachs.',
             selfHost:
@@ -87,6 +129,37 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     Boolean(status?.needsAuth) ||
     Boolean(status?.gated && status.remaining === 0);
 
+  const showConversationControls =
+    Boolean(status?.authenticated) && status?.mode === 'cloud' && !status.statusError;
+
+  async function onSelectConversation(id: string) {
+    if (!status?.apiScope || id === conversationId || pending) return;
+    setConversationId(id);
+    setPending(true);
+    try {
+      await loadConversation(status.apiScope, id);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function onNewChat() {
+    if (!status?.apiScope || pending) return;
+    setPending(true);
+    try {
+      const created = await createAiConversation({ data: { apiScope: status.apiScope } });
+      if (!created.ok || !('conversation' in created)) {
+        toast.error(created.message ?? 'Could not start chat', 'AI');
+        return;
+      }
+      setConversations((prev) => [created.conversation, ...prev]);
+      setConversationId(created.conversation.id);
+      setMessages([]);
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function send(
     message: string,
     intent: 'chat' | 'explain_request' | 'summarize_stress' | 'suggest_fixes' = 'chat'
@@ -103,6 +176,18 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
       return;
     }
 
+    let activeId = conversationId;
+    if (status?.mode === 'cloud' && status.authenticated && !activeId && status.apiScope) {
+      const created = await createAiConversation({ data: { apiScope: status.apiScope } });
+      if (!created.ok || !('conversation' in created)) {
+        toast.error(created.message ?? 'Could not start chat', 'AI');
+        return;
+      }
+      activeId = created.conversation.id;
+      setConversationId(activeId);
+      setConversations((prev) => [created.conversation, ...prev]);
+    }
+
     const history = messages.filter((m) => m.role === 'user' || m.role === 'assistant');
     setMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
     setInput('');
@@ -115,7 +200,9 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           history: history.slice(-8),
           intent,
           requestId: latestRequest?.requestId,
-          stressId: latestStress?.id
+          stressId: latestStress?.id,
+          conversationId: activeId ?? undefined,
+          apiScope: status?.apiScope
         }
       });
 
@@ -153,6 +240,20 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         }
       }
 
+      if (activeId) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeId
+              ? {
+                  ...c,
+                  title: c.title ?? trimmed.slice(0, 60),
+                  updatedAt: new Date().toISOString()
+                }
+              : c
+          )
+        );
+      }
+
       setMessages((prev) => [...prev, { role: 'assistant', content: result.reply }]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'AI failed');
@@ -178,6 +279,35 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           ) : null}
         </CardTitle>
         <div className="-mx-1 flex items-center gap-0.5 overflow-x-auto px-1">
+          {showConversationControls ? (
+            <>
+              <select
+                className="text-muted-foreground mr-1 max-w-[10rem] truncate border-0 bg-transparent text-xs outline-none sm:max-w-[14rem]"
+                aria-label="Conversation"
+                disabled={pending || locked}
+                value={conversationId ?? ''}
+                onChange={(e) => void onSelectConversation(e.target.value)}
+              >
+                {conversations.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {conversationLabel(c)}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="group h-8 px-2"
+                disabled={pending || locked}
+                aria-label="New chat"
+                onClick={() => void onNewChat()}
+              >
+                <MessageSquarePlus className="size-3.5 shrink-0" />
+                <HoverIconLabel>New</HoverIconLabel>
+              </Button>
+            </>
+          ) : null}
           <Button
             type="button"
             size="sm"

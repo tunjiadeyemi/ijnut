@@ -129,14 +129,40 @@ export class ObservabilityController {
   }
 
   /**
-   * Persisted Cloud AI chat memory (requires session).
+   * List Cloud AI conversations for the signed-in user + apiScope bucket.
+   */
+  @Get("ai/conversations")
+  @UseGuards(AdminAuthGuard)
+  async aiConversations(
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+    @Query("apiScope") apiScope?: string,
+  ) {
+    return this.ai.listConversations(sessionToken, apiScope);
+  }
+
+  /**
+   * Start a new empty conversation in the given apiScope bucket.
+   */
+  @Post("ai/conversations")
+  @UseGuards(AdminAuthGuard)
+  async aiCreateConversation(
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+    @Body() body?: { apiScope?: string },
+  ) {
+    return this.ai.createConversation(sessionToken, body?.apiScope);
+  }
+
+  /**
+   * Persisted Cloud AI chat memory for one conversation (requires session).
    */
   @Get("ai/history")
   @UseGuards(AdminAuthGuard)
   async aiHistory(
     @Headers("x-ijnut-session-token") sessionToken?: string,
+    @Query("conversationId") conversationId?: string,
+    @Query("apiScope") apiScope?: string,
   ) {
-    return this.ai.history(sessionToken);
+    return this.ai.history(sessionToken, conversationId, apiScope);
   }
 
   /**

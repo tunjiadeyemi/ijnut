@@ -75,6 +75,24 @@ export function getPublicApiUrl(): string {
   return base;
 }
 
+/**
+ * Stable Cloud AI conversation bucket for the metrics API this dashboard points at.
+ * Collapses localhost / 127.0.0.1 / 0.0.0.0; strips trailing slash.
+ */
+export function getApiScope(): string {
+  const raw = getPublicApiUrl();
+  try {
+    const u = new URL(raw);
+    let host = u.hostname.toLowerCase();
+    if (host === '127.0.0.1' || host === '0.0.0.0') host = 'localhost';
+    const port = u.port ? `:${u.port}` : '';
+    const path = u.pathname.replace(/\/$/, '') || '';
+    return `${u.protocol}//${host}${port}${path}`;
+  } catch {
+    return raw.toLowerCase().replace(/\/$/, '') || 'legacy';
+  }
+}
+
 export function isAiGated(): boolean {
   return getIjnutMode() === 'cloud' && getIjnutPlan() === 'free';
 }

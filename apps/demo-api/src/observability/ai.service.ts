@@ -9,7 +9,13 @@ import {
 } from "./ai-provider";
 import {
   appendChatExchange,
+  createConversation,
+  getOwnedConversation,
+  getOrCreateLatestConversation,
+  listConversations,
   loadChatHistory,
+  normalizeApiScope,
+  type AiConversation,
 } from "./ai-chat-memory";
 import {
   consumeAiMessage,
@@ -35,6 +41,10 @@ export type AiChatBody = {
   stressId?: string;
   /** When set (dashboard → Cloud AI), used instead of this process's MetricsStore. */
   context?: AiMetricsContext;
+  /** Active conversation (Cloud memory). */
+  conversationId?: string;
+  /** Normalized OBSERVABILITY_API_URL bucket. */
+  apiScope?: string;
 };
 
 export type AiStatusResponse = {
@@ -55,6 +65,8 @@ export type AiChatResponse =
       ok: true;
       reply: string;
       remaining: number | null;
+      conversationId?: string;
+      title?: string | null;
     }
   | {
       ok: false;
@@ -97,9 +109,74 @@ export class AiService {
     return resolveAiAccess(sessionToken);
   }
 
+  async listConversations(
+    sessionToken: string | undefined,
+    apiScope: string | undefined,
+  ): Promise<
+    | { ok: true; conversations: AiConversation[]; apiScope: string }
+    | { ok: false; needsAuth: true; message: string }
+  > {
+    const access = await resolveAiAccess(sessionToken);
+    if (!access.userId) {
+      return {
+        ok: false,
+        needsAuth: true,
+        message: "Sign in to load Cloud AI conversations.",
+      };
+    }
+    const scope = normalizeApiScope(apiScope);
+    try {
+      const conversations = await listConversations(access.userId, scope, 20);
+      return { ok: true, conversations, apiScope: scope };
+    } catch (err) {
+      console.error("[ai] list conversations failed", err);
+      return { ok: true, conversations: [], apiScope: scope };
+    }
+  }
+
+  async createConversation(
+    sessionToken: string | undefined,
+    apiScope: string | undefined,
+  ): Promise<
+    | { ok: true; conversation: AiConversation }
+    | { ok: false; needsAuth?: true; message: string }
+  > {
+    const access = await resolveAiAccess(sessionToken);
+    if (!access.userId) {
+      return {
+        ok: false,
+        needsAuth: true,
+        message: "Sign in to start a Cloud AI conversation.",
+      };
+    }
+    try {
+      const conversation = await createConversation(
+        access.userId,
+        normalizeApiScope(apiScope),
+      );
+      return { ok: true, conversation };
+    } catch (err) {
+      console.error("[ai] create conversation failed", err);
+      return {
+        ok: false,
+        message:
+          err instanceof Error ? err.message : "Could not create conversation",
+      };
+    }
+  }
+
   async history(
     sessionToken: string | undefined,
-  ): Promise<{ ok: true; messages: Array<{ role: "user" | "assistant"; content: string }> } | { ok: false; needsAuth: true; message: string }> {
+    conversationId: string | undefined,
+    apiScope: string | undefined,
+  ): Promise<
+    | {
+        ok: true;
+        messages: Array<{ role: "user" | "assistant"; content: string }>;
+        conversationId: string | null;
+      }
+    | { ok: false; needsAuth: true; message: string }
+  > {
     const access = await resolveAiAccess(sessionToken);
     if (!access.userId) {
       return {
@@ -109,14 +186,34 @@ export class AiService {
       };
     }
     try {
-      const rows = await loadChatHistory(access.userId, 40);
+      let convId = conversationId?.trim() || null;
+      if (!convId && apiScope) {
+        const latest = await getOrCreateLatestConversation(
+          access.userId,
+          apiScope,
+        );
+        convId = latest.id;
+      }
+      if (!convId) {
+        return { ok: true, messages: [], conversationId: null };
+      }
+      const owned = await getOwnedConversation(
+        access.userId,
+        convId,
+        apiScope,
+      );
+      if (!owned) {
+        return { ok: true, messages: [], conversationId: null };
+      }
+      const rows = await loadChatHistory(access.userId, owned.id, 40);
       return {
         ok: true,
+        conversationId: owned.id,
         messages: rows.map((r) => ({ role: r.role, content: r.content })),
       };
     } catch (err) {
       console.error("[ai] load history failed", err);
-      return { ok: true, messages: [] };
+      return { ok: true, messages: [], conversationId: null };
     }
   }
 
@@ -175,6 +272,27 @@ export class AiService {
       return { ok: false, gated: false, message: "message is required" };
     }
 
+    let conversation: AiConversation | null = null;
+    if (mode === "cloud" && access.userId) {
+      const scope = normalizeApiScope(body.apiScope);
+      const convId = body.conversationId?.trim();
+      if (!convId) {
+        return {
+          ok: false,
+          gated: false,
+          message: "conversationId is required for Cloud AI chat memory",
+        };
+      }
+      conversation = await getOwnedConversation(access.userId, convId, scope);
+      if (!conversation) {
+        return {
+          ok: false,
+          gated: false,
+          message: "Conversation not found or apiScope mismatch",
+        };
+      }
+    }
+
     let remaining = access.remaining;
     if (access.gated && access.plan === "free" && access.userId) {
       const consumed = await consumeAiMessage(access.userId, getAiFreeLimit());
@@ -196,9 +314,13 @@ export class AiService {
 
     // Prefer server memory (Cloud); fall back to client-sent history.
     let history = (body.history ?? []).slice(-8);
-    if (mode === "cloud" && access.userId) {
+    if (mode === "cloud" && access.userId && conversation) {
       try {
-        const stored = await loadChatHistory(access.userId, 16);
+        const stored = await loadChatHistory(
+          access.userId,
+          conversation.id,
+          16,
+        );
         if (stored.length > 0) {
           history = stored.map((t) => ({
             role: t.role,
@@ -226,13 +348,22 @@ export class AiService {
     try {
       const reply = await chatWithAi(messages);
 
-      if (mode === "cloud" && access.userId) {
-        void appendChatExchange(access.userId, message, reply).catch((err) =>
-          console.error("[ai] memory persist failed", err),
-        );
+      if (mode === "cloud" && access.userId && conversation) {
+        void appendChatExchange(
+          access.userId,
+          conversation.id,
+          message,
+          reply,
+        ).catch((err) => console.error("[ai] memory persist failed", err));
       }
 
-      return { ok: true, reply, remaining };
+      return {
+        ok: true,
+        reply,
+        remaining,
+        conversationId: conversation?.id,
+        title: conversation?.title,
+      };
     } catch (err) {
       return {
         ok: false,

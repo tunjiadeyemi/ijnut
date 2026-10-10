@@ -1,9 +1,9 @@
 import { createServerFn } from '@tanstack/react-start';
 
-import type { AiChatInput } from '@/shared/api/types';
+import type { AiChatInput, AiConversation } from '@/shared/api/types';
 import { cloudAiFetch, obsFetch } from '@/shared/api/client.server';
 
-export type { AiChatInput, AiChatTurn } from '@/shared/api/types';
+export type { AiChatInput, AiChatTurn, AiConversation } from '@/shared/api/types';
 
 type ApiAiStatus = {
   configured: boolean;
@@ -22,6 +22,8 @@ type ApiAiChatResult =
       ok: true;
       reply: string;
       remaining: number | null;
+      conversationId?: string;
+      title?: string | null;
     }
   | {
       ok: false;
@@ -47,6 +49,7 @@ export type AiStatusResult = {
   remaining: number | null;
   aiUsed: number;
   billingConfigured: boolean;
+  apiScope: string;
   cta: {
     upgrade: string;
     selfHost: string;
@@ -92,11 +95,14 @@ async function localMetricsContext(): Promise<{
  */
 export const getAiStatus = createServerFn({ method: 'GET' }).handler(
   async (): Promise<AiStatusResult> => {
-    const { DEFAULT_GATE_CTA, getIjnutMode } = await import('@/features/config/server');
+    const { DEFAULT_GATE_CTA, getApiScope, getIjnutMode } = await import(
+      '@/features/config/server'
+    );
     const { isBachsConfigured } = await import('@/features/billing/server/bachs.server');
 
     const billingConfigured = await isBachsConfigured();
     const cta = { ...DEFAULT_GATE_CTA };
+    const apiScope = getApiScope();
 
     try {
       const token = await sessionTokenForApi();
@@ -115,6 +121,7 @@ export const getAiStatus = createServerFn({ method: 'GET' }).handler(
         remaining: status.remaining,
         aiUsed: status.aiUsed,
         billingConfigured,
+        apiScope,
         cta
       };
     } catch (err) {
@@ -129,6 +136,7 @@ export const getAiStatus = createServerFn({ method: 'GET' }).handler(
         remaining: null,
         aiUsed: 0,
         billingConfigured,
+        apiScope,
         cta,
         statusError:
           err instanceof Error ? err.message : 'Could not reach Cloud AI status'
@@ -137,32 +145,126 @@ export const getAiStatus = createServerFn({ method: 'GET' }).handler(
   }
 );
 
-export const getAiHistory = createServerFn({ method: 'GET' }).handler(async () => {
-  try {
-    const token = await sessionTokenForApi();
-    if (!token) {
-      return { ok: false as const, needsAuth: true as const, messages: [] as const };
+export const listAiConversations = createServerFn({ method: 'GET' })
+  .validator((data: { apiScope: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const token = await sessionTokenForApi();
+      if (!token) {
+        return {
+          ok: false as const,
+          needsAuth: true as const,
+          conversations: [] as AiConversation[],
+          apiScope: data.apiScope
+        };
+      }
+      const qs = new URLSearchParams({ apiScope: data.apiScope });
+      const result = await cloudAiFetch<
+        | { ok: true; conversations: AiConversation[]; apiScope: string }
+        | { ok: false; needsAuth?: boolean; message?: string }
+      >(`/observability/ai/conversations?${qs}`, {
+        headers: { 'X-Ijnut-Session-Token': token }
+      });
+      if (!result.ok) {
+        return {
+          ok: false as const,
+          needsAuth: true as const,
+          conversations: [] as AiConversation[],
+          apiScope: data.apiScope
+        };
+      }
+      return {
+        ok: true as const,
+        conversations: result.conversations,
+        apiScope: result.apiScope
+      };
+    } catch {
+      return {
+        ok: true as const,
+        conversations: [] as AiConversation[],
+        apiScope: data.apiScope
+      };
     }
-    const result = await cloudAiFetch<
-      | { ok: true; messages: Array<{ role: 'user' | 'assistant'; content: string }> }
-      | { ok: false; needsAuth?: boolean; message?: string }
-    >('/observability/ai/history', {
-      headers: { 'X-Ijnut-Session-Token': token }
-    });
-    if (!result.ok) {
-      return { ok: false as const, needsAuth: true as const, messages: [] as const };
+  });
+
+export const createAiConversation = createServerFn({ method: 'POST' })
+  .validator((data: { apiScope: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const token = await sessionTokenForApi();
+      if (!token) {
+        return { ok: false as const, needsAuth: true as const, message: 'Sign in required' };
+      }
+      return await cloudAiFetch<
+        | { ok: true; conversation: AiConversation }
+        | { ok: false; needsAuth?: boolean; message: string }
+      >('/observability/ai/conversations', {
+        method: 'POST',
+        headers: { 'X-Ijnut-Session-Token': token },
+        body: JSON.stringify({ apiScope: data.apiScope })
+      });
+    } catch (err) {
+      return {
+        ok: false as const,
+        message: err instanceof Error ? err.message : 'Could not create conversation'
+      };
     }
-    return { ok: true as const, messages: result.messages };
-  } catch {
-    return { ok: true as const, messages: [] as const };
-  }
-});
+  });
+
+export const getAiHistory = createServerFn({ method: 'GET' })
+  .validator((data: { conversationId?: string; apiScope: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const token = await sessionTokenForApi();
+      if (!token) {
+        return {
+          ok: false as const,
+          needsAuth: true as const,
+          messages: [] as const,
+          conversationId: null as string | null
+        };
+      }
+      const qs = new URLSearchParams({ apiScope: data.apiScope });
+      if (data.conversationId) qs.set('conversationId', data.conversationId);
+      const result = await cloudAiFetch<
+        | {
+            ok: true;
+            messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+            conversationId: string | null;
+          }
+        | { ok: false; needsAuth?: boolean; message?: string }
+      >(`/observability/ai/history?${qs}`, {
+        headers: { 'X-Ijnut-Session-Token': token }
+      });
+      if (!result.ok) {
+        return {
+          ok: false as const,
+          needsAuth: true as const,
+          messages: [] as const,
+          conversationId: null as string | null
+        };
+      }
+      return {
+        ok: true as const,
+        messages: result.messages,
+        conversationId: result.conversationId
+      };
+    } catch {
+      return {
+        ok: true as const,
+        messages: [] as const,
+        conversationId: null as string | null
+      };
+    }
+  });
 
 export const askObservabilityAi = createServerFn({ method: 'POST' })
   .validator((data: AiChatInput) => data)
   .handler(async ({ data }) => {
     try {
       const token = await sessionTokenForApi();
+      const { getApiScope } = await import('@/features/config/server');
+      const apiScope = data.apiScope ?? getApiScope();
       const context = await localMetricsContext();
       return await cloudAiFetch<ApiAiChatResult>('/observability/ai', {
         method: 'POST',
@@ -173,6 +275,8 @@ export const askObservabilityAi = createServerFn({ method: 'POST' })
           intent: data.intent,
           requestId: data.requestId,
           stressId: data.stressId,
+          conversationId: data.conversationId,
+          apiScope,
           context
         })
       });

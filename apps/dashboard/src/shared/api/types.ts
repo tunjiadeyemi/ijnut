@@ -60,10 +60,20 @@ export type StressInput = {
 
 export type AiChatTurn = { role: "user" | "assistant"; content: string };
 
+export type AiConversation = {
+  id: string;
+  apiScope: string;
+  title: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AiChatInput = {
   message: string;
   history?: AiChatTurn[];
   intent?: "chat" | "explain_request" | "summarize_stress" | "suggest_fixes";
   requestId?: string;
   stressId?: string;
+  conversationId?: string;
+  apiScope?: string;
 };
