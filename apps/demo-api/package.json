@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "pnpm --filter @api-obs/observability run build && nest build",
+    "build": "pnpm --filter @api-obs/observability run build && pnpm --filter @ijnut/sdk run build && nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@api-obs/observability": "workspace:*",
+    "@ijnut/sdk": "workspace:*",
     "@nestjs/common": "^11.1.3",
     "@nestjs/core": "^11.1.3",
     "@nestjs/platform-express": "^11.1.3",

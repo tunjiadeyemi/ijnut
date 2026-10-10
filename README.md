@@ -28,6 +28,25 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 - **Agent report** — markdown snapshot you can copy into Cursor / any coding agent
 - Cloud AI: **3 lifetime messages** after sign-in + **persisted chat memory**, then subscribe CTA; self-host unlimited with BYO keys
 
+## Embed in your API (`@ijnut/sdk`)
+
+```ts
+import express from "express";
+import { createIjnut } from "@ijnut/sdk";
+
+const app = express();
+const ijnut = createIjnut({
+  serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
+  stressAllowlist: "127.0.0.1,localhost,your-api.example",
+});
+
+app.use(ijnut.middleware());
+app.use(express.json());
+app.use("/observability", ijnut.router());
+```
+
+Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`). See [`packages/sdk/README.md`](./packages/sdk/README.md).
+
 ## Monorepo layout
 
 ```text
@@ -36,7 +55,8 @@ api-observability-lite/
     demo-api/          NestJS shortener + observability routes + stress
     dashboard/         TanStack Start UI (port 3001)
   packages/
-    observability/     Shared store, p95, stress runner, allowlist, rate limiter
+    sdk/               @ijnut/sdk — Express middleware + /observability router
+    observability/     Core store, p95, stress runner, allowlist, rate limiter
   docker-compose.yml   Postgres + Redis + API + dashboard
 ```
 
