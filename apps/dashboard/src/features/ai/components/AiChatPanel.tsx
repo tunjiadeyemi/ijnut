@@ -158,6 +158,17 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
     }
   }
 
+  async function refreshConversations(apiScope: string, preferId?: string) {
+    const listed = await listAiConversations({ data: { apiScope } });
+    if (!listed.ok || !Array.isArray(listed.conversations)) return;
+    // Keep optimistic list if the server returns empty unexpectedly
+    if (listed.conversations.length === 0) return;
+    setConversations(listed.conversations);
+    if (preferId && listed.conversations.some((c) => c.id === preferId)) {
+      setConversationId(preferId);
+    }
+  }
+
   async function onNewChat() {
     if (!status?.apiScope || pending) return;
     setPending(true);
@@ -167,9 +178,14 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         toast.error(created.message ?? 'Could not start chat', 'AI');
         return;
       }
-      setConversations((prev) => [created.conversation, ...prev]);
+      setConversations((prev) => {
+        const next = [created.conversation, ...prev.filter((c) => c.id !== created.conversation.id)];
+        return next;
+      });
       setConversationId(created.conversation.id);
       setMessages([]);
+      // Re-sync from server so older chats aren't missing from the dropdown
+      await refreshConversations(status.apiScope, created.conversation.id);
     } finally {
       setPending(false);
     }
@@ -304,15 +320,15 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             <span className="text-muted-foreground font-normal">· {remainingLabel}</span>
           ) : null}
         </CardTitle>
-        <div className="-mx-1 flex max-w-full items-center gap-0.5 overflow-x-auto px-1">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1 sm:justify-end">
           {showConversationControls && conversations.length > 0 ? (
-            <>
+            <div className="flex min-w-0 items-center gap-0.5">
               <Select
                 aria-label="Conversation"
                 mono={false}
                 size="sm"
                 disabled={pending || locked}
-                className="mr-1 w-[10rem] shrink-0 sm:w-[14rem]"
+                className="w-[10rem] shrink-0 sm:w-[14rem]"
                 value={conversationId ?? conversations[0]?.id ?? ''}
                 options={conversations.map((c) => ({
                   value: c.id,
@@ -332,56 +348,58 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
                 <MessageSquarePlus className="size-3.5 shrink-0" />
                 <HoverIconLabel>New</HoverIconLabel>
               </Button>
-            </>
+            </div>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="group h-8 shrink-0 px-2"
-            disabled={pending || locked || !latestRequest}
-            aria-label="Explain"
-            onClick={() =>
-              void send(
-                'Explain this request: was it slow, and why? Use db/SQL spans if present and call out the bottleneck.',
-                'explain_request'
-              )
-            }
-          >
-            <Sparkles className="size-3.5 shrink-0" />
-            <HoverIconLabel>Explain</HoverIconLabel>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="group h-8 shrink-0 px-2"
-            disabled={pending || locked || !latestStress}
-            aria-label="Summarize load"
-            onClick={() =>
-              void send('Summarize the latest load test in plain language.', 'summarize_stress')
-            }
-          >
-            <Gauge className="size-3.5 shrink-0" />
-            <HoverIconLabel>Load</HoverIconLabel>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="group h-8 shrink-0 px-2"
-            disabled={pending || locked}
-            aria-label="Suggest fixes"
-            onClick={() =>
-              void send(
-                'Based on current metrics and slow SQL spans, what should I fix first? Include index/cache/N+1 advice when evidence supports it.',
-                'suggest_fixes'
-              )
-            }
-          >
-            <Wrench className="size-3.5 shrink-0" />
-            <HoverIconLabel>Fixes</HoverIconLabel>
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="group h-8 shrink-0 px-2"
+              disabled={pending || locked || !latestRequest}
+              aria-label="Explain"
+              onClick={() =>
+                void send(
+                  'Explain this request: was it slow, and why? Use db/SQL spans if present and call out the bottleneck.',
+                  'explain_request'
+                )
+              }
+            >
+              <Sparkles className="size-3.5 shrink-0" />
+              <HoverIconLabel>Explain</HoverIconLabel>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="group h-8 shrink-0 px-2"
+              disabled={pending || locked || !latestStress}
+              aria-label="Summarize load"
+              onClick={() =>
+                void send('Summarize the latest load test in plain language.', 'summarize_stress')
+              }
+            >
+              <Gauge className="size-3.5 shrink-0" />
+              <HoverIconLabel>Load</HoverIconLabel>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="group h-8 shrink-0 px-2"
+              disabled={pending || locked}
+              aria-label="Suggest fixes"
+              onClick={() =>
+                void send(
+                  'Based on current metrics and slow SQL spans, what should I fix first? Include index/cache/N+1 advice when evidence supports it.',
+                  'suggest_fixes'
+                )
+              }
+            >
+              <Wrench className="size-3.5 shrink-0" />
+              <HoverIconLabel>Fixes</HoverIconLabel>
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 px-0 pb-0">
@@ -415,7 +433,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
                 key={`${m.role}-${i}`}
                 className={
                   m.role === 'user'
-                    ? 'ml-6 rounded-2xl bg-primary/10 px-3 py-2 text-sm'
+                    ? 'ml-auto w-fit max-w-[min(100%,28rem)] rounded-2xl bg-primary/10 px-3 py-2 text-sm'
                     : 'text-foreground/90 mr-4 space-y-2 text-sm leading-relaxed'
                 }
               >

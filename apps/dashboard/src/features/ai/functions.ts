@@ -200,7 +200,7 @@ export const listAiConversations = createServerFn({ method: 'GET' })
       };
     } catch {
       return {
-        ok: true as const,
+        ok: false as const,
         conversations: [] as AiConversation[],
         apiScope: data.apiScope
       };
