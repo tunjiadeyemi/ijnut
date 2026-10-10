@@ -52,6 +52,55 @@ See [`packages/sdk/README.md`](./packages/sdk/README.md).
 
 Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`).
 
+### Paste into your AI agent
+
+Copy this into Cursor / Claude / ChatGPT in **your** backend repo to wire up the middleware:
+
+````md
+Integrate @ijnut/sdk into this Node API so the IJNUT dashboard can show metrics and run allowlisted load tests.
+
+## Goals
+1. Record every inbound request (timing + request id).
+2. Expose `/observability/*` (overview, requests, stress) protected by a service key.
+3. Do not break existing routes, auth, or CORS.
+
+## Install
+- `pnpm add @ijnut/sdk` (or npm/yarn).
+- Peers: install `express`, `hono`, or use Nest — match this project.
+
+## Framework pick (use the one this repo uses)
+- **Express:** `createIjnut` from `@ijnut/sdk`
+  - `app.use(ijnut.middleware())` early (before most routes).
+  - `app.use("/observability", ijnut.router())`.
+- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
+  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
+- **NestJS:** `IjnutModule.forRoot({...})` from `@ijnut/sdk/nest`
+  - Registers global metrics middleware + `/observability` controller.
+
+## Config
+- `serviceKey: process.env.OBSERVABILITY_SERVICE_KEY` (long random secret).
+- `stressAllowlist`: hosts this API may load-test (e.g. `127.0.0.1,localhost,your-api.example` or `STRESS_ALLOWLIST`).
+- Keep `/observability/health` public; all other `/observability/*` require `Authorization: Bearer <service key>`.
+
+## Optional (recommended)
+- Wrap DB calls with `tracedQuery(pool, sql, params)` or ORM calls with `withSpan(name, "db", fn)` so the dashboard can show SQL/cache timing.
+- Never put secrets or raw PII in span `meta` — use `$1` placeholders in SQL.
+
+## Dashboard wiring (document for the human)
+```env
+OBSERVABILITY_API_URL=<public origin of THIS API>
+OBSERVABILITY_SERVICE_KEY=<same secret as on the API>
+```
+
+## Done when
+- `GET /observability/health` → `{ ok: true }`
+- `GET /observability/overview` with Bearer key → 200 JSON
+- Same without key → 401
+- Hit a normal app route; overview route counts increase after refresh
+
+Read npm docs for `@ijnut/sdk` if imports differ. Prefer minimal diffs; match this repo’s style.
+````
+
 ## Monorepo layout
 
 ```text
