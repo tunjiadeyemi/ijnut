@@ -21,6 +21,7 @@ import {
 import { isGithubAuthConfigured } from "../auth/auth";
 import { AdminAuthGuard } from "./admin-auth.guard";
 import { CloudAiGatewayGuard } from "./cloud-ai-gateway.guard";
+import { AiRateLimitGuard } from "./ai-rate-limit.guard";
 import { AiService, type AiChatBody } from "./ai.service";
 import { METRICS_STORE } from "./metrics.token";
 import { StressRateLimitGuard } from "./stress-rate-limit.guard";
@@ -145,7 +146,7 @@ export class ObservabilityController {
    * Start a new empty conversation in the given apiScope bucket.
    */
   @Post("ai/conversations")
-  @UseGuards(CloudAiGatewayGuard)
+  @UseGuards(CloudAiGatewayGuard, AiRateLimitGuard)
   async aiCreateConversation(
     @Headers("x-ijnut-session-token") sessionToken?: string,
     @Body() body?: { apiScope?: string },
@@ -171,7 +172,7 @@ export class ObservabilityController {
    * Metrics context may be supplied in the body (local API → Cloud AI sidecar).
    */
   @Post("ai")
-  @UseGuards(CloudAiGatewayGuard)
+  @UseGuards(CloudAiGatewayGuard, AiRateLimitGuard)
   async askAi(
     @Body() body: AiChatBody,
     @Headers("x-ijnut-session-token") sessionToken?: string,

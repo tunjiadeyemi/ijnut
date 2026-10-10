@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Gauge, Loader2, MessageSquarePlus, Send, Sparkles, Wrench } from 'lucide-react';
+import {
+  Bot,
+  Check,
+  Copy,
+  Gauge,
+  Loader2,
+  MessageSquarePlus,
+  Send,
+  Sparkles,
+  Wrench
+} from 'lucide-react';
 
 import type { AiConversation, RequestRecord, StressReport } from '@/shared/api/types';
 import {
@@ -10,9 +20,11 @@ import {
   listAiConversations,
   type AiChatTurn
 } from '@/features/ai/functions';
+import { buildAgentBriefPaste } from '@/features/ai/lib/agent-brief';
 
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
+import { Select } from '@/shared/components/ui/select';
 import { useToast } from '@/shared/components/ui/toast';
 import { UpgradeGate } from '@/features/ai/components/UpgradeGate';
 import { HoverIconLabel } from '@/shared/components/HoverIconLabel';
@@ -49,6 +61,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
   const [messages, setMessages] = useState<AiChatTurn[]>([]);
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function loadConversation(apiScope: string, id: string) {
@@ -159,6 +172,17 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
       setMessages([]);
     } finally {
       setPending(false);
+    }
+  }
+
+  async function copyForAgent(content: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(buildAgentBriefPaste(content));
+      setCopiedIdx(index);
+      toast.success('Copied for your coding agent');
+      window.setTimeout(() => setCopiedIdx((i) => (i === index ? null : i)), 2000);
+    } catch {
+      toast.error('Could not copy');
     }
   }
 
@@ -281,21 +305,21 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           ) : null}
         </CardTitle>
         <div className="-mx-1 flex items-center gap-0.5 overflow-x-auto px-1">
-          {showConversationControls ? (
+          {showConversationControls && conversations.length > 0 ? (
             <>
-              <select
-                className="text-muted-foreground mr-1 max-w-[10rem] truncate border-0 bg-transparent text-xs outline-none sm:max-w-[14rem]"
+              <Select
                 aria-label="Conversation"
+                mono={false}
+                size="sm"
                 disabled={pending || locked}
-                value={conversationId ?? ''}
-                onChange={(e) => void onSelectConversation(e.target.value)}
-              >
-                {conversations.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {conversationLabel(c)}
-                  </option>
-                ))}
-              </select>
+                className="mr-1 w-[10rem] sm:w-[14rem]"
+                value={conversationId ?? conversations[0]?.id ?? ''}
+                options={conversations.map((c) => ({
+                  value: c.id,
+                  label: conversationLabel(c)
+                }))}
+                onChange={(id) => void onSelectConversation(id)}
+              />
               <Button
                 type="button"
                 size="sm"
@@ -392,11 +416,29 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
                 className={
                   m.role === 'user'
                     ? 'ml-6 rounded-2xl bg-primary/10 px-3 py-2 text-sm'
-                    : 'text-foreground/90 mr-4 text-sm leading-relaxed'
+                    : 'text-foreground/90 mr-4 space-y-2 text-sm leading-relaxed'
                 }
               >
                 {m.role === 'assistant' ? (
-                  <Markdown>{m.content}</Markdown>
+                  <>
+                    <Markdown>{m.content}</Markdown>
+                    <div className="flex justify-start">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground h-7 gap-1.5 px-2 text-[11px]"
+                        onClick={() => void copyForAgent(m.content, i)}
+                      >
+                        {copiedIdx === i ? (
+                          <Check className="size-3" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                        {copiedIdx === i ? 'Copied' : 'Copy for agent'}
+                      </Button>
+                    </div>
+                  </>
                 ) : (
                   <div className="break-words whitespace-pre-wrap">{m.content}</div>
                 )}

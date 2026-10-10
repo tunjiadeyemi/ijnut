@@ -21,6 +21,11 @@ type Props = {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  /** Use monospace labels (paths / codes). Default true. */
+  mono?: boolean;
+  /** Compact trigger for dense toolbars. */
+  size?: "default" | "sm";
+  "aria-label"?: string;
 };
 
 export function Select({
@@ -31,6 +36,9 @@ export function Select({
   placeholder = "Select…",
   className,
   disabled,
+  mono = true,
+  size = "default",
+  "aria-label": ariaLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -67,17 +75,24 @@ export function Select({
         id={id}
         type="button"
         disabled={disabled}
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onTriggerKeyDown}
         className={cn(
-          "border-input bg-background hover:bg-accent/40 focus-visible:ring-ring flex h-9 w-full items-center justify-between gap-2 rounded-md border px-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "border-input bg-background hover:bg-accent/40 focus-visible:ring-ring flex w-full items-center justify-between gap-2 rounded-md border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50",
+          size === "sm" ? "h-8 px-2 text-xs" : "h-9 px-2.5 text-sm",
           !selected && "text-muted-foreground",
         )}
       >
-        <span className="min-w-0 truncate font-mono text-xs">
+        <span
+          className={cn(
+            "min-w-0 truncate text-xs",
+            mono ? "font-mono" : "font-sans",
+          )}
+        >
           {selected?.label ?? placeholder}
         </span>
         <ChevronDown
@@ -109,7 +124,12 @@ export function Select({
                     setOpen(false);
                   }}
                 >
-                  <span className="min-w-0 truncate font-mono text-xs">
+                  <span
+                    className={cn(
+                      "min-w-0 truncate text-xs",
+                      mono ? "font-mono" : "font-sans",
+                    )}
+                  >
                     {opt.label}
                   </span>
                   {isActive ? (

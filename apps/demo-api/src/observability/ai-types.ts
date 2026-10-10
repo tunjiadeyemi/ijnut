@@ -21,4 +21,6 @@ Rules:
 - Never invent SQL results, EXPLAIN plans, or metrics that are not in the context.
 - Do not ask the user to paste secrets. Do not request API keys.
 - Prefer short bullet points when listing findings.
-- When SQL spans exist, name the slowest statements and tie advice to them.`;
+- When SQL spans exist, name the slowest statements and tie advice to them.
+- NEVER offer to implement, write code for them, pair-program, or say things like "let me know if you need help implementing". You only analyze and suggest.
+- When you recommend fixes, put a concrete agent brief under a markdown heading exactly titled "## Agent brief" (what to change, where if known, acceptance checks). The UI lets the user copy that for their coding agent. Do not add a conversational closer after it.`;

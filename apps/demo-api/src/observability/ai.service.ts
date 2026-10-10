@@ -429,7 +429,7 @@ export class AiService {
         : "User asked to summarize a load test, but no stress reports exist yet.";
     }
     if (body.intent === "suggest_fixes") {
-      return "User wants practical fix and system-design suggestions based on the metrics below. Prioritize slowQueries / repeatedSql (N+1), then route p95 and errors. Suggest indexes, caching, batching, or schema changes only when evidence supports them.";
+      return "User wants practical fix and system-design suggestions based on the metrics below. Prioritize slowQueries / repeatedSql (N+1), then route p95 and errors. Suggest indexes, caching, batching, or schema changes only when evidence supports them. End with an ## Agent brief section the user can copy for their coding agent. Do not offer to implement the changes yourself.";
     }
     return "";
   }

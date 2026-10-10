@@ -4,6 +4,7 @@ import { METRICS_STORE } from "./metrics.token";
 import { ObservabilityController } from "./observability.controller";
 import { AdminAuthGuard } from "./admin-auth.guard";
 import { CloudAiGatewayGuard } from "./cloud-ai-gateway.guard";
+import { AiRateLimitGuard } from "./ai-rate-limit.guard";
 import { AiService } from "./ai.service";
 import { StressRateLimitGuard } from "./stress-rate-limit.guard";
 
@@ -19,6 +20,7 @@ import { StressRateLimitGuard } from "./stress-rate-limit.guard";
     },
     AdminAuthGuard,
     CloudAiGatewayGuard,
+    AiRateLimitGuard,
     StressRateLimitGuard,
     AiService,
   ],
