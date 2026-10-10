@@ -79,9 +79,24 @@ await withSpan("db.query", "db", async () => {
 });
 ```
 
-## NestJS
+## Quick start (NestJS)
 
-Use the Express-compatible middleware via Nest’s middleware consumer, or mount `ijnut.router()` on the underlying Express instance. The demo app in this monorepo (`apps/demo-api`) shows a Nest wiring that shares the same store primitives.
+```ts
+import { Module } from "@nestjs/common";
+import { IjnutModule } from "@ijnut/sdk/nest";
+
+@Module({
+  imports: [
+    IjnutModule.forRoot({
+      serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
+      stressAllowlist: "127.0.0.1,localhost,your-api.example",
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+This registers metrics middleware on all routes and `/observability/*` (service-key protected). Inject the store with `@Inject(IJNUT_STORE)`.
 
 ## Exports
 
@@ -89,6 +104,7 @@ Use the Express-compatible middleware via Nest’s middleware consumer, or mount
 |--------|---------|
 | `@ijnut/sdk` | Express (`createIjnut`) |
 | `@ijnut/sdk/hono` | Hono (`createIjnutHono`) |
+| `@ijnut/sdk/nest` | NestJS (`IjnutModule`) |
 
 ## Env
 

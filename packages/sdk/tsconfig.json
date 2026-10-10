@@ -5,7 +5,10 @@
     "moduleResolution": "Node",
     "outDir": "dist",
     "rootDir": "src",
-    "incremental": false
+    "incremental": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false
   },
   "include": ["src/**/*"]
 }

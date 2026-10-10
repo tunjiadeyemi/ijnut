@@ -45,7 +45,10 @@ app.use("*", ijnut.middleware());
 app.route("/observability", ijnut.app());
 ```
 
-**Express:** `createIjnut` from `@ijnut/sdk` — see [`packages/sdk/README.md`](./packages/sdk/README.md).
+**Express:** `createIjnut` from `@ijnut/sdk`  
+**NestJS:** `IjnutModule.forRoot(...)` from `@ijnut/sdk/nest`  
+
+See [`packages/sdk/README.md`](./packages/sdk/README.md).
 
 Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`).
 
