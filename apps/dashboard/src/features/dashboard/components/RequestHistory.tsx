@@ -1,8 +1,11 @@
 import { Fragment, useState } from 'react';
+import { ScrollText } from 'lucide-react';
+
 import { statusBadgeVariant } from '../utils/badges';
 import type { RequestRecord, RequestSpan } from '@/shared/api/types';
 
 import { Badge } from '@/shared/components/ui/badge';
+import { EmptyState } from '@/shared/components/EmptyState';
 import { latencyTextClass } from '@/features/overview/lib/latency';
 import { Table, TableBody, TableCell, TableRow } from '@/shared/components/ui/table';
 
@@ -53,15 +56,18 @@ export function RequestHistory({ requests }: Props) {
   return (
     <section className="flex min-h-[16rem] min-w-0 flex-col gap-2 border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-8">
       <h2 className="shrink-0 border-b border-border pb-2 text-sm font-medium">History</h2>
-      <div className="max-h-64 min-h-0 flex-1 overflow-auto lg:max-h-none">
-        <Table>
-          <TableBody>
-            {requests.length === 0 ? (
-              <TableRow>
-                <TableCell className="text-muted-foreground pl-0">—</TableCell>
-              </TableRow>
-            ) : (
-              requests.slice(0, 20).map((r) => {
+      {requests.length === 0 ? (
+        <EmptyState
+          icon={ScrollText}
+          title="No requests yet"
+          description="Recent calls appear here with status and latency. Expand a row to see SQL and cache spans when instrumented."
+          className="flex-1"
+        />
+      ) : (
+        <div className="max-h-64 min-h-0 flex-1 overflow-auto lg:max-h-none">
+          <Table>
+            <TableBody>
+              {requests.slice(0, 20).map((r) => {
                 const rowKey = r.requestId + r.timestamp;
                 const hasSpans = (r.spans?.length ?? 0) > 0;
                 const open = openId === rowKey;
@@ -112,11 +118,11 @@ export function RequestHistory({ requests }: Props) {
                     ) : null}
                   </Fragment>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </section>
   );
 }

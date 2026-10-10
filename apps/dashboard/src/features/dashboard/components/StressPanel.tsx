@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Play } from 'lucide-react';
+import { Activity, Loader2, Play } from 'lucide-react';
 
 import { DEMO_PATHS } from '../utils/constants';
 import { formatClockTime } from '../utils/format';
@@ -10,6 +10,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select } from '@/shared/components/ui/select';
 import { Button } from '@/shared/components/ui/button';
+import { EmptyState } from '@/shared/components/EmptyState';
 import { latencyTextClass } from '@/features/overview/lib/latency';
 
 type Compare = {
@@ -334,9 +335,14 @@ export function StressPanel({
           ) : null}
         </div>
       ) : (
-        <p className="text-muted-foreground border-t border-border pt-2 text-xs">
-          No load test yet — run one to see RPS and latency here.
-        </p>
+        <div className="border-t border-border">
+          <EmptyState
+            icon={Activity}
+            title="No load test yet"
+            description="Pick a path, set users and seconds, then Run. RPS, p95, and errors land here when it finishes."
+            className="py-8"
+          />
+        </div>
       )}
 
       {reports.length > 1 ? (

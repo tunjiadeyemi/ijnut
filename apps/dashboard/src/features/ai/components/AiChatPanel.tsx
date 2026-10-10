@@ -16,6 +16,8 @@ import { Button } from '@/shared/components/ui/button';
 import { useToast } from '@/shared/components/ui/toast';
 import { UpgradeGate } from '@/features/ai/components/UpgradeGate';
 import { HoverIconLabel } from '@/shared/components/HoverIconLabel';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { Markdown } from '@/shared/components/Markdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 
 type Props = {
@@ -377,9 +379,12 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         >
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
             {messages.length === 0 && !pending ? (
-              <p className="text-muted-foreground py-8 text-center text-sm">
-                Ask about a slow route…
-              </p>
+              <EmptyState
+                icon={Bot}
+                title="Ask about your API"
+                description="Explain a slow request, summarize a load test, or get fix ideas from live metrics and SQL spans."
+                className="flex-1 py-6"
+              />
             ) : null}
             {messages.map((m, i) => (
               <div
@@ -390,7 +395,11 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
                     : 'text-foreground/90 mr-4 text-sm leading-relaxed'
                 }
               >
-                <div className="break-words whitespace-pre-wrap">{m.content}</div>
+                {m.role === 'assistant' ? (
+                  <Markdown>{m.content}</Markdown>
+                ) : (
+                  <div className="break-words whitespace-pre-wrap">{m.content}</div>
+                )}
               </div>
             ))}
             {pending ? (
