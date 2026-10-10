@@ -1,6 +1,7 @@
 import {
   CreditCard,
   Eraser,
+  LayoutGrid,
   Loader2,
   LogIn,
   LogOut,
@@ -34,6 +35,7 @@ type Props = {
   /** Current mobile section label (small screens only). */
   mobileSectionLabel?: string;
   onOpenMobileNav?: () => void;
+  onResetPanels?: () => void;
   onAutoRefreshChange: (checked: boolean) => void;
   onRefresh: () => void;
   onClear: () => void;
@@ -53,6 +55,7 @@ export function DashboardHeader({
   showBilling,
   mobileSectionLabel,
   onOpenMobileNav,
+  onResetPanels,
   onAutoRefreshChange,
   onRefresh,
   onClear,
@@ -111,6 +114,18 @@ export function DashboardHeader({
             stressReports={stressReports}
             includeToolTraffic={showToolTraffic}
           />
+          {onResetPanels ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="group h-8 px-2"
+              aria-label="Reset panels"
+              onClick={onResetPanels}
+            >
+              <LayoutGrid className="size-3.5 shrink-0" />
+              <HoverIconLabel>Reset panels</HoverIconLabel>
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"

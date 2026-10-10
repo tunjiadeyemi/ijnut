@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import {
   buildRouteCompare,
@@ -26,6 +26,7 @@ import { StressPanel } from './components/StressPanel';
 import { useToast } from '@/shared/components/ui/toast';
 import { RequestHistory } from './components/RequestHistory';
 import { DashboardHeader } from './components/DashboardHeader';
+import { DesktopPanels, type DesktopPanelsHandle } from './components/DesktopPanels';
 import { MobileSidebar, mobileSectionLabel, type MobileSection } from './components/MobileSidebar';
 import { AiChatPanel } from '@/features/ai/components/AiChatPanel';
 import { useIsDesktop } from './hooks/useIsDesktop';
@@ -69,6 +70,7 @@ export function DashboardPage({
   const [pending, startTransition] = useTransition();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileSection, setMobileSection] = useState<MobileSection>('metrics');
+  const desktopPanelsRef = useRef<DesktopPanelsHandle>(null);
 
   const visibleRoutes = useMemo(
     () => filterVisibleRoutes(overview.routes, showToolTraffic),
@@ -223,6 +225,9 @@ export function DashboardPage({
         showBilling={initial.billing.hasCustomer}
         mobileSectionLabel={isDesktop ? undefined : mobileSectionLabel(mobileSection)}
         onOpenMobileNav={isDesktop ? undefined : () => setMobileNavOpen(true)}
+        onResetPanels={
+          isDesktop ? () => desktopPanelsRef.current?.resetLayout() : undefined
+        }
         onAutoRefreshChange={setAutoRefresh}
         onRefresh={onRefresh}
         onClear={() => void onClearHistory()}
@@ -305,33 +310,45 @@ export function DashboardPage({
         <>
           <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />
 
-          <div className="flex flex-col border-b border-border lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[1.35fr_0.9fr] lg:overflow-hidden lg:divide-x lg:divide-border">
-            <RoutesPanel
-              routes={visibleRoutes}
-              showToolTraffic={showToolTraffic}
-              onShowToolTrafficChange={setShowToolTraffic}
-            />
-            <section className="flex min-h-[20rem] min-w-0 flex-col border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pl-8">
-              <AiChatPanel
-                latestRequest={visibleRequests[0] ?? null}
-                latestStress={lastReport ?? reports[0] ?? null}
+          <DesktopPanels
+            ref={desktopPanelsRef}
+            routes={
+              <RoutesPanel
+                routes={visibleRoutes}
+                showToolTraffic={showToolTraffic}
+                onShowToolTrafficChange={setShowToolTraffic}
+                className="h-full min-h-0 border-b-0 pr-0"
               />
-            </section>
-          </div>
-
-          <div className="flex flex-col pb-6 lg:grid lg:min-h-0 lg:flex-[0.85] lg:grid-cols-2 lg:overflow-hidden lg:divide-x lg:divide-border lg:pb-0">
-            <RequestHistory requests={visibleRequests} />
-            <StressPanel
-              demoApiBase={demoApiBase}
-              running={running}
-              stressGate={stressGate}
-              lastReport={lastReport}
-              reports={reports}
-              compare={compare}
-              onError={(message, title) => toast.error(message, title)}
-              onRun={onRunStress}
-            />
-          </div>
+            }
+            ask={
+              <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden py-4">
+                <AiChatPanel
+                  latestRequest={visibleRequests[0] ?? null}
+                  latestStress={lastReport ?? reports[0] ?? null}
+                />
+              </section>
+            }
+            history={
+              <RequestHistory
+                requests={visibleRequests}
+                fillHeight
+                className="h-full min-h-0 border-b-0 pr-0"
+              />
+            }
+            load={
+              <StressPanel
+                demoApiBase={demoApiBase}
+                running={running}
+                stressGate={stressGate}
+                lastReport={lastReport}
+                reports={reports}
+                compare={compare}
+                className="h-full min-h-0 overflow-y-auto pl-0"
+                onError={(message, title) => toast.error(message, title)}
+                onRun={onRunStress}
+              />
+            }
+          />
         </>
       )}
     </div>

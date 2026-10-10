@@ -34,7 +34,7 @@ export function RoutesPanel({
   return (
     <section
       className={cn(
-        'flex min-h-[22rem] min-w-0 flex-col gap-3 border-b border-border py-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:pr-8',
+        'flex min-h-[22rem] min-w-0 flex-col gap-3 border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-8',
         className
       )}
     >
