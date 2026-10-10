@@ -1,4 +1,5 @@
 import type { OverviewResponse, RequestRecord, StressReport } from '@/shared/api/types';
+import { collectSqlSpans, detectRepeatedSql } from '@/features/dashboard/utils/sql-spans';
 
 function isToolTraffic(routeOrPath: string): boolean {
   return (
@@ -139,8 +140,32 @@ export function buildAgentReportMarkdown(input: AgentReportInput): string {
           : '';
         lines.push(`- **${s.type}** \`${s.name}\`: ${fmtMs(s.durationMs)}${meta}`);
       }
+      const n1 = detectRepeatedSql(r.spans);
+      if (n1.length > 0) {
+        lines.push('');
+        lines.push('Possible N+1 (same SQL repeated on this request):');
+        for (const x of n1) {
+          lines.push(
+            `- ${x.count}× \`${x.sql}\` (total ${fmtMs(x.totalMs)})`
+          );
+        }
+      }
       lines.push('');
     }
+  }
+
+  const slowSql = collectSqlSpans(requests, 15);
+  if (slowSql.length > 0) {
+    lines.push('## Slowest SQL samples');
+    lines.push('');
+    lines.push('| ms | op | SQL | route |');
+    lines.push('| ---: | --- | --- | --- |');
+    for (const q of slowSql) {
+      lines.push(
+        `| ${fmtMs(q.durationMs)} | ${q.op ?? '—'} | \`${q.sql.replace(/\|/g, '\\|')}\` | \`${q.route}\` |`
+      );
+    }
+    lines.push('');
   }
 
   if (stress.length > 0) {
@@ -194,7 +219,7 @@ export function buildAgentReportMarkdown(input: AgentReportInput): string {
     '- Prefer evidence in this report over guesses. If data is thin, say what to measure next.'
   );
   lines.push(
-    '- Suggest concrete fixes (indexes, caching, N+1, rate limits, auth mistakes) tied to routes/spans above.'
+    '- Suggest concrete fixes (indexes, caching, N+1, batching, rate limits, auth mistakes) tied to routes/SQL spans above.'
   );
   lines.push('- Tool/dashboard traffic under `/observability` is excluded unless noted.');
   lines.push('');

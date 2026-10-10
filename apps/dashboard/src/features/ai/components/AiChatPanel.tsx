@@ -317,7 +317,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             aria-label="Explain"
             onClick={() =>
               void send(
-                'Explain this request: was it slow, and why? Use spans if present.',
+                'Explain this request: was it slow, and why? Use db/SQL spans if present and call out the bottleneck.',
                 'explain_request'
               )
             }
@@ -347,7 +347,10 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             disabled={pending || locked}
             aria-label="Suggest fixes"
             onClick={() =>
-              void send('Based on current metrics, what should I fix first?', 'suggest_fixes')
+              void send(
+                'Based on current metrics and slow SQL spans, what should I fix first? Include index/cache/N+1 advice when evidence supports it.',
+                'suggest_fixes'
+              )
             }
           >
             <Wrench className="size-3.5 shrink-0" />

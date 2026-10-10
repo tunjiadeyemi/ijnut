@@ -8,7 +8,7 @@ import {
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import Redis from "ioredis";
-import { withSpan } from "@api-obs/observability";
+import { tracedQuery, withSpan } from "@api-obs/observability";
 
 const CACHE_PREFIX = "short:";
 const CACHE_TTL_SEC = 60 * 60; // 1 hour
@@ -92,15 +92,11 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
     }
 
     const code = randomBytes(4).toString("base64url").slice(0, 6);
-    await withSpan(
-      "db.insert.links",
-      "db",
-      () =>
-        this.pool.query(`INSERT INTO links (code, url) VALUES ($1, $2)`, [
-          code,
-          url,
-        ]),
-      { sql: "INSERT INTO links (code, url) VALUES ($1, $2)" },
+    await tracedQuery(
+      this.pool,
+      `INSERT INTO links (code, url) VALUES ($1, $2)`,
+      [code, url],
+      { name: "db.insert.links" },
     );
 
     const publicBase =
@@ -135,15 +131,11 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const { rows } = await withSpan(
-      "db.select.links",
-      "db",
-      () =>
-        this.pool.query<{ url: string }>(
-          `SELECT url FROM links WHERE code = $1`,
-          [code],
-        ),
-      { sql: "SELECT url FROM links WHERE code = $1" },
+    const { rows } = await tracedQuery<{ rows: { url: string }[] }>(
+      this.pool,
+      `SELECT url FROM links WHERE code = $1`,
+      [code],
+      { name: "db.select.links" },
     );
     const row = rows[0];
     if (!row) {
@@ -177,11 +169,11 @@ export class ShortenerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async delete(code: string): Promise<void> {
-    const result = await withSpan(
-      "db.delete.links",
-      "db",
-      () => this.pool.query(`DELETE FROM links WHERE code = $1`, [code]),
-      { sql: "DELETE FROM links WHERE code = $1" },
+    const result = await tracedQuery<{ rowCount: number | null }>(
+      this.pool,
+      `DELETE FROM links WHERE code = $1`,
+      [code],
+      { name: "db.delete.links" },
     );
     if (result.rowCount === 0) {
       throw new NotFoundException(`Unknown code: ${code}`);

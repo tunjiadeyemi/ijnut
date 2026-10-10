@@ -24,3 +24,9 @@ export {
   withSpan,
 } from "./spans";
 export type { Span, SpanType } from "./spans";
+export {
+  tracedQuery,
+  normalizeSql,
+  inferSqlOp,
+} from "./traced-query";
+export type { TracedQueryOptions } from "./traced-query";

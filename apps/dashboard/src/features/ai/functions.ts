@@ -1,7 +1,11 @@
 import { createServerFn } from '@tanstack/react-start';
 
-import type { AiChatInput, AiConversation } from '@/shared/api/types';
+import type { AiChatInput, AiConversation, RequestRecord } from '@/shared/api/types';
 import { cloudAiFetch, obsFetch } from '@/shared/api/client.server';
+import {
+  collectSqlSpans,
+  detectRepeatedSql
+} from '@/features/dashboard/utils/sql-spans';
 
 export type { AiChatInput, AiChatTurn, AiConversation } from '@/shared/api/types';
 
@@ -71,18 +75,34 @@ async function localMetricsContext(): Promise<{
   routes?: unknown[];
   recentRequests?: unknown[];
   stressReports?: unknown[];
+  slowQueries?: unknown[];
+  repeatedSql?: unknown[];
 }> {
   try {
     const [overview, requests, stress] = await Promise.all([
       obsFetch<{ updatedAt?: string; routes?: unknown[] }>('/observability/overview'),
-      obsFetch<{ requests?: unknown[] }>('/observability/requests?limit=40'),
+      obsFetch<{ requests?: RequestRecord[] }>('/observability/requests?limit=40'),
       obsFetch<{ reports?: unknown[] }>('/observability/stress')
     ]);
+    const recent = (requests.requests ?? []).slice(0, 40);
+    const slowQueries = collectSqlSpans(recent, 20);
+    const repeatedSql = recent
+      .flatMap((r) =>
+        detectRepeatedSql(r.spans).map((x) => ({
+          ...x,
+          requestId: r.requestId,
+          path: r.path
+        }))
+      )
+      .slice(0, 10);
+
     return {
       updatedAt: overview.updatedAt,
       routes: (overview.routes ?? []).slice(0, 25),
-      recentRequests: (requests.requests ?? []).slice(0, 25),
-      stressReports: (stress.reports ?? []).slice(0, 5)
+      recentRequests: recent.slice(0, 25),
+      stressReports: (stress.reports ?? []).slice(0, 5),
+      slowQueries,
+      repeatedSql
     };
   } catch {
     return {};

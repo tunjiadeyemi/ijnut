@@ -33,6 +33,9 @@ export {
   getRequestSpans,
   addSpan,
   withSpan,
+  tracedQuery,
+  normalizeSql,
+  inferSqlOp,
   percentile,
   p50,
   p95,
@@ -49,6 +52,7 @@ export type {
   StressRequestBody,
   Span,
   SpanType,
+  TracedQueryOptions,
   StressRunnerOptions,
   RunStressResult,
 } from "@api-obs/observability";

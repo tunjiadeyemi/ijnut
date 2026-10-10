@@ -72,9 +72,14 @@ OBSERVABILITY_SERVICE_KEY=same-as-on-your-api
 ## Spans (optional)
 
 ```ts
-import { withSpan } from "@ijnut/sdk";
+import { withSpan, tracedQuery } from "@ijnut/sdk";
 
-await withSpan("db.query", "db", async () => {
+// Prefer for SQL — records duration + normalized statement on the request
+await tracedQuery(pool, `SELECT * FROM items WHERE id = $1`, [id], {
+  name: "db.select.items",
+});
+
+await withSpan("redis.get", "cache", async () => {
   // …
 });
 ```

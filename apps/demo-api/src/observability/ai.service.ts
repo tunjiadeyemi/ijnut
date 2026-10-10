@@ -31,6 +31,10 @@ export type AiMetricsContext = {
   routes?: unknown[];
   recentRequests?: unknown[];
   stressReports?: unknown[];
+  /** Slowest db spans with SQL text (from caller's local API). */
+  slowQueries?: unknown[];
+  /** Same SQL shape repeated many times on one request (possible N+1). */
+  repeatedSql?: unknown[];
 };
 
 export type AiChatBody = {
@@ -380,6 +384,8 @@ export class AiService {
         routes: (body.context.routes ?? []).slice(0, 25),
         recentRequests: (body.context.recentRequests ?? []).slice(0, 25),
         stressReports: (body.context.stressReports ?? []).slice(0, 5),
+        slowQueries: (body.context.slowQueries ?? []).slice(0, 20),
+        repeatedSql: (body.context.repeatedSql ?? []).slice(0, 10),
       };
     }
 
@@ -390,12 +396,15 @@ export class AiService {
     const appRoutes = overview.routes.filter(
       (r) => !r.key.includes("/observability"),
     );
+    const { slowQueries, repeatedSql } = extractSqlInsights(appRequests);
 
     return {
       updatedAt: overview.updatedAt,
       routes: appRoutes.slice(0, 25),
       recentRequests: appRequests.slice(0, 25),
       stressReports: stressReports.slice(0, 5),
+      slowQueries,
+      repeatedSql,
     };
   }
 
@@ -408,7 +417,7 @@ export class AiService {
     if (body.intent === "explain_request" && body.requestId) {
       const req = requests.find((r) => r.requestId === body.requestId);
       return req
-        ? `User wants an explanation of this request:\n${JSON.stringify(req, null, 2)}`
+        ? `User wants an explanation of this request (call out db/SQL spans and whether they dominate latency):\n${JSON.stringify(req, null, 2)}`
         : `User asked to explain requestId=${body.requestId} but it was not in the recent buffer.`;
     }
     if (body.intent === "summarize_stress") {
@@ -420,8 +429,84 @@ export class AiService {
         : "User asked to summarize a load test, but no stress reports exist yet.";
     }
     if (body.intent === "suggest_fixes") {
-      return "User wants practical fix suggestions based on the metrics below (errors, slow p95, cache vs db if spans exist).";
+      return "User wants practical fix and system-design suggestions based on the metrics below. Prioritize slowQueries / repeatedSql (N+1), then route p95 and errors. Suggest indexes, caching, batching, or schema changes only when evidence supports them.";
     }
     return "";
   }
+}
+
+type SpanLike = {
+  name?: string;
+  type?: string;
+  durationMs?: number;
+  meta?: Record<string, string>;
+};
+
+type RequestLike = {
+  requestId?: string;
+  route?: string;
+  path?: string;
+  spans?: SpanLike[];
+};
+
+function extractSqlInsights(requests: RequestLike[]) {
+  const slowQueries: Array<{
+    sql: string;
+    op?: string;
+    durationMs: number;
+    name: string;
+    route?: string;
+    path?: string;
+    requestId?: string;
+    rowCount?: string;
+  }> = [];
+  const repeatedSql: Array<{
+    sql: string;
+    count: number;
+    totalMs: number;
+    requestId?: string;
+    path?: string;
+  }> = [];
+
+  for (const r of requests) {
+    const sqlCounts = new Map<string, { count: number; totalMs: number }>();
+    for (const s of r.spans ?? []) {
+      if (s.type !== "db") continue;
+      const sql = s.meta?.sql?.trim();
+      if (!sql || typeof s.durationMs !== "number") continue;
+      slowQueries.push({
+        sql,
+        op: s.meta?.op,
+        durationMs: s.durationMs,
+        name: s.name ?? "db",
+        route: r.route,
+        path: r.path,
+        requestId: r.requestId,
+        rowCount: s.meta?.rowCount,
+      });
+      const cur = sqlCounts.get(sql) ?? { count: 0, totalMs: 0 };
+      cur.count += 1;
+      cur.totalMs += s.durationMs;
+      sqlCounts.set(sql, cur);
+    }
+    for (const [sql, v] of sqlCounts) {
+      if (v.count >= 4) {
+        repeatedSql.push({
+          sql,
+          count: v.count,
+          totalMs: v.totalMs,
+          requestId: r.requestId,
+          path: r.path,
+        });
+      }
+    }
+  }
+
+  slowQueries.sort((a, b) => b.durationMs - a.durationMs);
+  repeatedSql.sort((a, b) => b.count - a.count);
+
+  return {
+    slowQueries: slowQueries.slice(0, 20),
+    repeatedSql: repeatedSql.slice(0, 10),
+  };
 }

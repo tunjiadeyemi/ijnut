@@ -16,6 +16,8 @@ export {
   defaultStore,
   withSpan,
   addSpan,
+  tracedQuery,
+  normalizeSql,
   parseAllowlist,
   runStress,
 } from "@api-obs/observability";
