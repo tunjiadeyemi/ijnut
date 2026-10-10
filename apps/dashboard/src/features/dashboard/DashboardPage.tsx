@@ -161,7 +161,9 @@ export function DashboardPage({
   }
 
   async function onManageBilling() {
-    const result = await createPortal();
+    const result = await createPortal({
+      data: { returnOrigin: window.location.origin }
+    });
     if (!result.ok) {
       toast.error(result.message, 'Billing');
       return;

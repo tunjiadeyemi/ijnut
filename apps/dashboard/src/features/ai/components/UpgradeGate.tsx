@@ -35,7 +35,9 @@ export function UpgradeGate({
     setError(null);
     setPending(true);
     try {
-      const result = await createCheckout();
+      const result = await createCheckout({
+        data: { returnOrigin: window.location.origin }
+      });
       if (!result.ok) {
         setError(result.message);
         return;

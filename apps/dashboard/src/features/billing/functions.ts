@@ -43,42 +43,46 @@ export const getBillingStatus = createServerFn({ method: 'GET' }).handler(async 
   };
 });
 
-export const createCheckout = createServerFn({ method: 'POST' }).handler(async () => {
-  const { cloudAiFetch } = await import('@/shared/api/client.server');
-  const headers = await sessionHeaders();
-  try {
-    return await cloudAiFetch<
-      | { ok: true; url: string }
-      | { ok: false; message: string; needsAuth?: boolean }
-    >('/observability/billing/checkout', {
-      method: 'POST',
-      headers,
-      body: '{}'
-    });
-  } catch (err) {
-    return {
-      ok: false as const,
-      message: err instanceof Error ? err.message : 'Could not start checkout'
-    };
-  }
-});
+export const createCheckout = createServerFn({ method: 'POST' })
+  .validator((data: { returnOrigin?: string }) => data)
+  .handler(async ({ data }) => {
+    const { cloudAiFetch } = await import('@/shared/api/client.server');
+    const headers = await sessionHeaders();
+    try {
+      return await cloudAiFetch<
+        | { ok: true; url: string }
+        | { ok: false; message: string; needsAuth?: boolean }
+      >('/observability/billing/checkout', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ returnOrigin: data.returnOrigin })
+      });
+    } catch (err) {
+      return {
+        ok: false as const,
+        message: err instanceof Error ? err.message : 'Could not start checkout'
+      };
+    }
+  });
 
-export const createPortal = createServerFn({ method: 'POST' }).handler(async () => {
-  const { cloudAiFetch } = await import('@/shared/api/client.server');
-  const headers = await sessionHeaders();
-  try {
-    return await cloudAiFetch<
-      | { ok: true; url: string }
-      | { ok: false; message: string; needsAuth?: boolean }
-    >('/observability/billing/portal', {
-      method: 'POST',
-      headers,
-      body: '{}'
-    });
-  } catch (err) {
-    return {
-      ok: false as const,
-      message: err instanceof Error ? err.message : 'Could not open billing portal'
-    };
-  }
-});
+export const createPortal = createServerFn({ method: 'POST' })
+  .validator((data: { returnOrigin?: string }) => data)
+  .handler(async ({ data }) => {
+    const { cloudAiFetch } = await import('@/shared/api/client.server');
+    const headers = await sessionHeaders();
+    try {
+      return await cloudAiFetch<
+        | { ok: true; url: string }
+        | { ok: false; message: string; needsAuth?: boolean }
+      >('/observability/billing/portal', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ returnOrigin: data.returnOrigin })
+      });
+    } catch (err) {
+      return {
+        ok: false as const,
+        message: err instanceof Error ? err.message : 'Could not open billing portal'
+      };
+    }
+  });

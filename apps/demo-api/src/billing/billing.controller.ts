@@ -1,13 +1,17 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   Headers,
   Post,
+  Query,
+  Redirect,
   UseGuards,
 } from "@nestjs/common";
 import { AdminAuthGuard } from "../observability/admin-auth.guard";
 import {
+  assertSafeBillingReturnTo,
   createCustomerPortalSession,
   createProCheckout,
   isBachsConfigured,
@@ -17,6 +21,25 @@ import { resolveSessionUser } from "./session-user";
 
 @Controller("observability/billing")
 export class BillingController {
+  /**
+   * Public bounce for Bachs success/cancel when the dashboard is on localhost.
+   * Bachs cannot redirect to loopback; it hits the public API, which 302s to `to`.
+   */
+  @Get("return")
+  @Redirect()
+  returnToLocal(@Query("to") to?: string) {
+    if (!to?.trim()) {
+      throw new BadRequestException("Missing to");
+    }
+    try {
+      return { url: assertSafeBillingReturnTo(to), statusCode: 302 };
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Invalid return URL",
+      );
+    }
+  }
+
   @Get("status")
   @UseGuards(AdminAuthGuard)
   status() {
@@ -36,7 +59,10 @@ export class BillingController {
 
   @Post("checkout")
   @UseGuards(AdminAuthGuard)
-  async checkout(@Headers("x-ijnut-session-token") sessionToken?: string) {
+  async checkout(
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+    @Body() body?: { returnOrigin?: string },
+  ) {
     if (!isBachsConfigured()) {
       return {
         ok: false as const,
@@ -56,6 +82,7 @@ export class BillingController {
         userId: user.id,
         email: user.email,
         name: user.name ?? undefined,
+        returnOrigin: body?.returnOrigin,
       });
       return { ok: true as const, url };
     } catch (err) {
@@ -68,7 +95,10 @@ export class BillingController {
 
   @Post("portal")
   @UseGuards(AdminAuthGuard)
-  async portal(@Headers("x-ijnut-session-token") sessionToken?: string) {
+  async portal(
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+    @Body() body?: { returnOrigin?: string },
+  ) {
     if (!isBachsConfigured()) {
       return {
         ok: false as const,
@@ -91,7 +121,10 @@ export class BillingController {
       };
     }
     try {
-      const url = await createCustomerPortalSession(ids.customerId);
+      const url = await createCustomerPortalSession(
+        ids.customerId,
+        body?.returnOrigin,
+      );
       return { ok: true as const, url };
     } catch (err) {
       return {

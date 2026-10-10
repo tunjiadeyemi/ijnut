@@ -29,26 +29,46 @@ function apiBase(): string {
   return key.startsWith('sk_live_') ? 'https://api.bachs.io' : 'https://sandbox-api.bachs.io';
 }
 
+function isLoopbackHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return (
+    h === 'localhost' ||
+    h === '127.0.0.1' ||
+    h === '0.0.0.0' ||
+    h.endsWith('.local')
+  );
+}
+
+/** Public API origin (Railway) — used as Bachs redirect bounce for local dashboards. */
+function publicApiBaseUrl(): string {
+  const raw =
+    process.env.DEMO_PUBLIC_URL?.trim() ||
+    process.env.BACHS_RETURN_API_URL?.trim();
+  if (!raw) {
+    throw new Error(
+      'DEMO_PUBLIC_URL is required so Bachs can redirect via the public API back to localhost',
+    );
+  }
+  const absolute = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const u = new URL(absolute.replace(/\/$/, ''));
+  if (isLoopbackHost(u.hostname)) {
+    throw new Error('DEMO_PUBLIC_URL must be a public https host, not localhost');
+  }
+  return `${u.protocol}//${u.host}`;
+}
+
 function checkoutReturnBaseUrl(): string {
   const candidates = [
     process.env.BACHS_RETURN_URL?.trim(),
     process.env.IJNUT_PUBLIC_DASHBOARD_URL?.trim(),
-    process.env.BETTER_AUTH_URL?.trim()
+    process.env.BETTER_AUTH_URL?.trim(),
   ].filter(Boolean) as string[];
 
   for (const raw of candidates) {
     const base = raw.replace(/\/$/, '');
     try {
       const u = new URL(base);
-      const host = u.hostname.toLowerCase();
-      if (
-        host === 'localhost' ||
-        host === '127.0.0.1' ||
-        host === '0.0.0.0' ||
-        host.endsWith('.local')
-      ) {
-        continue;
-      }
+      if (isLoopbackHost(u.hostname)) continue;
       return base;
     } catch {
       continue;
@@ -56,8 +76,81 @@ function checkoutReturnBaseUrl(): string {
   }
 
   throw new Error(
-    'Bachs needs a public success/cancel URL. Set IJNUT_PUBLIC_DASHBOARD_URL or BACHS_RETURN_URL on the API (https://…), not localhost.'
+    'Bachs needs a public success/cancel URL. Set IJNUT_PUBLIC_DASHBOARD_URL or BACHS_RETURN_URL on the API (https://…), not localhost.',
   );
+}
+
+/**
+ * Bachs rejects localhost return URLs. For local dashboards we send Bachs to the
+ * public API bounce (`/observability/billing/return`), which 302s back to `returnOrigin`.
+ */
+export function resolveCheckoutReturnUrls(returnOrigin?: string): {
+  success_url: string;
+  cancel_url: string;
+} {
+  const origin = returnOrigin?.trim().replace(/\/$/, '');
+  if (origin) {
+    try {
+      const u = new URL(origin);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        throw new Error('invalid');
+      }
+      if (!isLoopbackHost(u.hostname)) {
+        return {
+          success_url: `${origin}/?checkout=success`,
+          cancel_url: `${origin}/?checkout=cancel`,
+        };
+      }
+      const api = publicApiBaseUrl();
+      const bounce = `${api}/observability/billing/return`;
+      return {
+        success_url: `${bounce}?status=success&to=${encodeURIComponent(`${origin}/?checkout=success`)}`,
+        cancel_url: `${bounce}?status=cancel&to=${encodeURIComponent(`${origin}/?checkout=cancel`)}`,
+      };
+    } catch {
+      // fall through
+    }
+  }
+
+  const base = checkoutReturnBaseUrl();
+  return {
+    success_url: `${base}/?checkout=success`,
+    cancel_url: `${base}/?checkout=cancel`,
+  };
+}
+
+/** Allow only loopback or configured public dashboard hosts (open-redirect safe). */
+export function assertSafeBillingReturnTo(to: string): string {
+  let u: URL;
+  try {
+    u = new URL(to);
+  } catch {
+    throw new Error('Invalid return URL');
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error('Invalid return URL protocol');
+  }
+
+  const host = u.hostname.toLowerCase();
+  const allowedHosts = new Set<string>(['localhost', '127.0.0.1']);
+  for (const raw of [
+    process.env.IJNUT_PUBLIC_DASHBOARD_URL,
+    process.env.BETTER_AUTH_URL,
+    process.env.BACHS_RETURN_URL,
+    ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(',') ?? []),
+  ]) {
+    if (!raw?.trim()) continue;
+    try {
+      allowedHosts.add(new URL(raw.trim()).hostname.toLowerCase());
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!allowedHosts.has(host)) {
+    throw new Error('Return URL host is not allowed');
+  }
+  return u.toString();
 }
 
 function formatBachsError(body: unknown, status: number): string {
@@ -104,11 +197,13 @@ export async function createProCheckout(opts: {
   userId: string;
   email: string;
   name?: string;
+  /** Dashboard origin (e.g. http://127.0.0.1:3001) — local uses API bounce. */
+  returnOrigin?: string;
 }): Promise<string> {
   const productId = process.env.BACHS_PRODUCT_ID?.trim();
   if (!productId) throw new Error('BACHS_PRODUCT_ID is not configured on the API');
 
-  const base = checkoutReturnBaseUrl();
+  const { success_url, cancel_url } = resolveCheckoutReturnUrls(opts.returnOrigin);
   const name = opts.name?.trim();
   const session = await bachsFetch<{ checkout_url?: string }>('/v1/checkout-sessions', {
     method: 'POST',
@@ -116,12 +211,12 @@ export async function createProCheckout(opts: {
       product_cart: [{ product_id: productId, quantity: 1 }],
       customer: {
         email: opts.email,
-        ...(name ? { name } : {})
+        ...(name ? { name } : {}),
       },
-      success_url: `${base}/?checkout=success`,
-      cancel_url: `${base}/?checkout=cancel`,
-      metadata: { userId: opts.userId }
-    })
+      success_url,
+      cancel_url,
+      metadata: { userId: opts.userId },
+    }),
   });
 
   if (!session.checkout_url) {
@@ -130,14 +225,38 @@ export async function createProCheckout(opts: {
   return session.checkout_url;
 }
 
-export async function createCustomerPortalSession(customerId: string): Promise<string> {
-  const base = checkoutReturnBaseUrl();
+function resolvePortalReturnUrl(returnOrigin?: string): string {
+  const origin = returnOrigin?.trim().replace(/\/$/, '');
+  if (origin) {
+    try {
+      const u = new URL(origin);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        throw new Error('invalid');
+      }
+      if (!isLoopbackHost(u.hostname)) {
+        return `${origin}/`;
+      }
+      const bounce = `${publicApiBaseUrl()}/observability/billing/return`;
+      return `${bounce}?status=portal&to=${encodeURIComponent(`${origin}/`)}`;
+    } catch {
+      // fall through
+    }
+  }
+  return `${checkoutReturnBaseUrl()}/`;
+}
+
+export async function createCustomerPortalSession(
+  customerId: string,
+  returnOrigin?: string,
+): Promise<string> {
+  const return_url = resolvePortalReturnUrl(returnOrigin);
+
   const portal = await bachsFetch<{ url?: string; portal_url?: string }>(
     `/v1/customers/${encodeURIComponent(customerId)}/portal-sessions`,
     {
       method: 'POST',
-      body: JSON.stringify({ return_url: `${base}/` })
-    }
+      body: JSON.stringify({ return_url }),
+    },
   );
   const url = portal.url || portal.portal_url;
   if (!url) throw new Error('Bachs did not return a portal URL');
