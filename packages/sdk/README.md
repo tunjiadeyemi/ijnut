@@ -2,14 +2,28 @@
 
 Drop-in observability for Node APIs: request metrics (count / error % / p95), recent request log, and an allowlisted stress runner — with an HTTP API the IJNUT dashboard can talk to.
 
-## Install (monorepo)
+## Install
 
 ```bash
-pnpm add @ijnut/sdk --filter your-api
-# peer: express
+pnpm add @ijnut/sdk
+# peer: express and/or hono (both optional — install the one you use)
 ```
 
-From this repo after `pnpm install` + `pnpm --filter @ijnut/sdk build`.
+## Quick start (Hono) — elioe / Node + Hono
+
+```ts
+import { Hono } from "hono";
+import { createIjnutHono } from "@ijnut/sdk/hono";
+
+const app = new Hono();
+const ijnut = createIjnutHono({
+  serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
+  stressAllowlist: "elioe.tech,127.0.0.1,localhost",
+});
+
+app.use("*", ijnut.middleware());
+app.route("/observability", ijnut.app());
+```
 
 ## Quick start (Express)
 
@@ -68,6 +82,13 @@ await withSpan("db.query", "db", async () => {
 ## NestJS
 
 Use the Express-compatible middleware via Nest’s middleware consumer, or mount `ijnut.router()` on the underlying Express instance. The demo app in this monorepo (`apps/demo-api`) shows a Nest wiring that shares the same store primitives.
+
+## Exports
+
+| Import | Runtime |
+|--------|---------|
+| `@ijnut/sdk` | Express (`createIjnut`) |
+| `@ijnut/sdk/hono` | Hono (`createIjnutHono`) |
 
 ## Env
 

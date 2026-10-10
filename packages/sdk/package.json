@@ -1,8 +1,7 @@
 {
   "name": "@ijnut/sdk",
-  "version": "0.1.0",
-  "description": "Drop-in observability for Node APIs — metrics middleware, /observability HTTP API, allowlisted stress runner",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Drop-in observability for Node APIs — Express + Hono middleware, /observability HTTP API, allowlisted stress runner",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -10,6 +9,12 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./hono": {
+      "types": "./dist/hono.d.ts",
+      "import": "./dist/hono.js",
+      "require": "./dist/hono.js",
+      "default": "./dist/hono.js"
     }
   },
   "files": [
@@ -17,25 +22,56 @@
     "README.md"
   ],
   "scripts": {
-    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "pnpm build",
     "lint": "echo \"no lint yet\""
   },
-  "dependencies": {
-    "@api-obs/observability": "workspace:*"
-  },
   "peerDependencies": {
-    "express": ">=4.0.0"
+    "express": ">=4.0.0",
+    "hono": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "autocannon": "^8.0.0"
   },
   "devDependencies": {
+    "@api-obs/observability": "workspace:*",
+    "@types/autocannon": "^7.12.5",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.3",
     "express": "^5.1.0",
+    "hono": "^4.7.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.8.3"
   },
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tunjiadeyemi/ijnut.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "observability",
+    "metrics",
+    "express",
+    "hono",
+    "stress",
+    "p95",
+    "ijnut"
+  ]
 }

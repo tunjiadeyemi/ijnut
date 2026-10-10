@@ -7,6 +7,7 @@ import {
   runWithRequestContext,
   getRequestSpans,
 } from "@api-obs/observability";
+import { shouldIgnorePath } from "./ignore-path";
 
 export type MetricsMiddlewareOptions = {
   store: MetricsStore;
@@ -16,15 +17,6 @@ export type MetricsMiddlewareOptions = {
    */
   ignorePathPrefix?: string | string[];
 };
-
-function shouldIgnore(path: string, prefixes?: string | string[]): boolean {
-  if (!prefixes) return false;
-  const list = Array.isArray(prefixes) ? prefixes : [prefixes];
-  return list.some((p) => {
-    const base = p.endsWith("/") ? p.slice(0, -1) : p;
-    return path === base || path.startsWith(`${base}/`);
-  });
-}
 
 /**
  * Express middleware: request id + timing into MetricsStore on `res.finish`.
@@ -45,7 +37,7 @@ export function createMetricsMiddleware(
 
       res.on("finish", () => {
         const path = req.path || req.url?.split("?")[0] || "/";
-        if (shouldIgnore(path, ignorePathPrefix)) return;
+        if (shouldIgnorePath(path, ignorePathPrefix)) return;
 
         const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
         const method = req.method;

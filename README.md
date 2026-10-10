@@ -30,22 +30,24 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 
 ## Embed in your API (`@ijnut/sdk`)
 
+**Hono** (elioe / Node):
+
 ```ts
-import express from "express";
-import { createIjnut } from "@ijnut/sdk";
+import { Hono } from "hono";
+import { createIjnutHono } from "@ijnut/sdk/hono";
 
-const app = express();
-const ijnut = createIjnut({
+const app = new Hono();
+const ijnut = createIjnutHono({
   serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
-  stressAllowlist: "127.0.0.1,localhost,your-api.example",
+  stressAllowlist: "elioe.tech,127.0.0.1,localhost",
 });
-
-app.use(ijnut.middleware());
-app.use(express.json());
-app.use("/observability", ijnut.router());
+app.use("*", ijnut.middleware());
+app.route("/observability", ijnut.app());
 ```
 
-Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`). See [`packages/sdk/README.md`](./packages/sdk/README.md).
+**Express:** `createIjnut` from `@ijnut/sdk` — see [`packages/sdk/README.md`](./packages/sdk/README.md).
+
+Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`).
 
 ## Monorepo layout
 
