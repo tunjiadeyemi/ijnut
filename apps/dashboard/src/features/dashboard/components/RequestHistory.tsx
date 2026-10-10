@@ -8,9 +8,11 @@ import { Badge } from '@/shared/components/ui/badge';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { latencyTextClass } from '@/features/overview/lib/latency';
 import { Table, TableBody, TableCell, TableRow } from '@/shared/components/ui/table';
+import { cn } from '@/shared/lib/utils';
 
 type Props = {
   requests: RequestRecord[];
+  className?: string;
 };
 
 function spanSummary(spans: RequestSpan[] | undefined): string | null {
@@ -50,11 +52,16 @@ function SpanBreakdown({ spans }: { spans: RequestSpan[] }) {
   );
 }
 
-export function RequestHistory({ requests }: Props) {
+export function RequestHistory({ requests, className }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <section className="flex min-h-[16rem] min-w-0 flex-col gap-2 border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-8">
+    <section
+      className={cn(
+        'flex min-h-[14rem] min-w-0 flex-col gap-2 border-b border-border py-3 sm:min-h-[16rem] sm:py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-6 xl:pr-8',
+        className
+      )}
+    >
       <h2 className="shrink-0 border-b border-border pb-2 text-sm font-medium">History</h2>
       {requests.length === 0 ? (
         <EmptyState
@@ -64,8 +71,8 @@ export function RequestHistory({ requests }: Props) {
           className="flex-1"
         />
       ) : (
-        <div className="max-h-64 min-h-0 flex-1 overflow-auto lg:max-h-none">
-          <Table>
+        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto max-h-none lg:max-h-none">
+          <Table className="min-w-[16rem]">
             <TableBody>
               {requests.slice(0, 20).map((r) => {
                 const rowKey = r.requestId + r.timestamp;
@@ -94,7 +101,7 @@ export function RequestHistory({ requests }: Props) {
                           {r.statusCode}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[10rem]">
+                      <TableCell className="max-w-[8rem] sm:max-w-[12rem]">
                         <div className="truncate font-mono text-xs">{r.path}</div>
                         {summary ? (
                           <div className="text-muted-foreground truncate text-[10px]">

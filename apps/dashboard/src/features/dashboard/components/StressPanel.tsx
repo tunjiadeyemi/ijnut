@@ -12,6 +12,7 @@ import { Select } from '@/shared/components/ui/select';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { latencyTextClass } from '@/features/overview/lib/latency';
+import { cn } from '@/shared/lib/utils';
 
 type Compare = {
   before?: RouteAggregate;
@@ -25,6 +26,7 @@ type Props = {
   lastReport: StressReport | null;
   reports: StressReport[];
   compare: Compare;
+  className?: string;
   onError: (message: string, title?: string) => void;
   onRun: (input: StressInput) => Promise<void>;
 };
@@ -44,6 +46,7 @@ export function StressPanel({
   lastReport,
   reports,
   compare,
+  className,
   onError,
   onRun
 }: Props) {
@@ -111,13 +114,18 @@ export function StressPanel({
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-2 py-4 lg:min-h-0 lg:overflow-y-auto lg:pl-8">
+    <section
+      className={cn(
+        'flex min-h-[14rem] min-w-0 flex-col gap-2 py-3 sm:py-4 lg:min-h-0 lg:overflow-y-auto lg:pl-6 xl:pl-8',
+        className
+      )}
+    >
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <h2 className="text-sm font-medium">Load</h2>
         <div
           role="radiogroup"
           aria-label="Target"
-          className="border-border flex rounded-md border p-0.5 text-xs"
+          className="border-border flex shrink-0 rounded-md border p-0.5 text-xs"
         >
           <button
             type="button"
@@ -172,8 +180,8 @@ export function StressPanel({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_5.5rem_1fr]">
-              <div className="space-y-1">
+            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-[1.4fr_5.5rem_1fr]">
+              <div className="space-y-1 min-[480px]:col-span-2 lg:col-span-1">
                 <Label htmlFor="target" className="text-xs">
                   Base URL
                 </Label>
@@ -249,7 +257,7 @@ export function StressPanel({
         )}
 
         <div className="flex flex-wrap items-end gap-3">
-          <div className="w-20 space-y-1">
+          <div className="w-[calc(50%-0.375rem)] min-w-[5rem] space-y-1 sm:w-20">
             <Label htmlFor="connections" className="text-xs">
               Users
             </Label>
@@ -264,7 +272,7 @@ export function StressPanel({
               className="h-9"
             />
           </div>
-          <div className="w-20 space-y-1">
+          <div className="w-[calc(50%-0.375rem)] min-w-[5rem] space-y-1 sm:w-20">
             <Label htmlFor="duration" className="text-xs">
               Sec
             </Label>
@@ -279,7 +287,12 @@ export function StressPanel({
               className="h-9"
             />
           </div>
-          <Button type="submit" size="sm" disabled={running} className="h-9">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={running}
+            className="h-9 w-full sm:w-auto sm:min-w-[5.5rem]"
+          >
             {running ? <Loader2 className="animate-spin" /> : <Play className="size-3.5" />}
             Run
           </Button>

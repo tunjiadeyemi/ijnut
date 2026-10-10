@@ -16,16 +16,28 @@ import { Checkbox } from '@/shared/components/ui/checkbox';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { latencyTextClass } from '@/features/overview/lib/latency';
 import { OverviewCharts } from '@/features/overview/components/OverviewCharts';
+import { cn } from '@/shared/lib/utils';
 
 type Props = {
   routes: RouteAggregate[];
   showToolTraffic: boolean;
   onShowToolTrafficChange: (checked: boolean) => void;
+  className?: string;
 };
 
-export function RoutesPanel({ routes, showToolTraffic, onShowToolTrafficChange }: Props) {
+export function RoutesPanel({
+  routes,
+  showToolTraffic,
+  onShowToolTrafficChange,
+  className
+}: Props) {
   return (
-    <section className="flex min-h-[22rem] min-w-0 flex-col gap-3 border-b border-border py-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:pr-8">
+    <section
+      className={cn(
+        'flex min-h-[16rem] min-w-0 flex-col gap-3 border-b border-border py-3 sm:min-h-[20rem] sm:py-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:pr-6 xl:pr-8',
+        className
+      )}
+    >
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border pb-2">
         <h2 className="text-sm font-medium">Routes</h2>
         <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -48,8 +60,8 @@ export function RoutesPanel({ routes, showToolTraffic, onShowToolTrafficChange }
           <div className="shrink-0 border-b border-border pb-3">
             <OverviewCharts routes={routes} />
           </div>
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table>
+          <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+            <Table className="min-w-[20rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-0">Route</TableHead>
@@ -61,7 +73,7 @@ export function RoutesPanel({ routes, showToolTraffic, onShowToolTrafficChange }
               <TableBody>
                 {routes.map((r) => (
                   <TableRow key={r.key} className="hover:bg-transparent">
-                    <TableCell className="max-w-[14rem] truncate pl-0 font-mono text-xs">
+                    <TableCell className="max-w-[10rem] truncate pl-0 font-mono text-xs sm:max-w-[14rem]">
                       {r.key}
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">{r.count}</TableCell>

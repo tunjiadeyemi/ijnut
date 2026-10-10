@@ -26,7 +26,13 @@ import { StressPanel } from './components/StressPanel';
 import { useToast } from '@/shared/components/ui/toast';
 import { RequestHistory } from './components/RequestHistory';
 import { DashboardHeader } from './components/DashboardHeader';
+import {
+  MobileSidebar,
+  mobileSectionLabel,
+  type MobileSection
+} from './components/MobileSidebar';
 import { AiChatPanel } from '@/features/ai/components/AiChatPanel';
+import { useIsDesktop } from './hooks/useIsDesktop';
 
 export type DashboardLoaderData = {
   overview: OverviewResponse;
@@ -45,6 +51,7 @@ export function DashboardPage({
   checkout?: 'success' | 'cancel';
 }) {
   const toast = useToast();
+  const isDesktop = useIsDesktop();
   const demoApiBase = initial.config.publicApiUrl;
 
   const initialRoutes = initial.overview?.routes ?? [];
@@ -66,6 +73,8 @@ export function DashboardPage({
   const [showToolTraffic, setShowToolTraffic] = useState(false);
   const [stressGate, setStressGate] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileSection, setMobileSection] = useState<MobileSection>('metrics');
 
   const visibleRoutes = useMemo(
     () => filterVisibleRoutes(overview.routes, showToolTraffic),
@@ -80,6 +89,13 @@ export function DashboardPage({
     () => buildRouteCompare(beforeSnap, lastReport, overview.routes),
     [beforeSnap, lastReport, overview.routes]
   );
+
+  const authSummary = {
+    authenticated: initial.auth.authenticated,
+    user: initial.auth.user
+      ? { name: initial.auth.user.name, email: initial.auth.user.email }
+      : null
+  };
 
   async function refreshAll() {
     const [ov, req, st] = await Promise.all([
@@ -185,8 +201,16 @@ export function DashboardPage({
     }
   }
 
+  function onRefresh() {
+    startTransition(() => {
+      void refreshAll().catch((e) =>
+        toast.error(e instanceof Error ? e.message : 'Could not update')
+      );
+    });
+  }
+
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-3 py-3 sm:px-6 sm:py-4 lg:h-svh lg:max-h-svh lg:overflow-hidden">
+    <div className="mx-auto flex h-svh max-h-svh w-full max-w-[1600px] flex-col overflow-hidden px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 lg:pb-4">
       <DashboardHeader
         overview={overview}
         requests={requests}
@@ -195,55 +219,120 @@ export function DashboardPage({
         autoRefresh={autoRefresh}
         busy={running || pending}
         clearDisabled={running}
-        auth={{
-          authenticated: initial.auth.authenticated,
-          user: initial.auth.user
-            ? { name: initial.auth.user.name, email: initial.auth.user.email }
-            : null
-        }}
+        auth={authSummary}
         showBilling={initial.billing.hasCustomer}
+        mobileSectionLabel={isDesktop ? undefined : mobileSectionLabel(mobileSection)}
+        onOpenMobileNav={isDesktop ? undefined : () => setMobileNavOpen(true)}
         onAutoRefreshChange={setAutoRefresh}
-        onRefresh={() =>
-          startTransition(() => {
-            void refreshAll().catch((e) =>
-              toast.error(e instanceof Error ? e.message : 'Could not update')
-            );
-          })
-        }
+        onRefresh={onRefresh}
         onClear={() => void onClearHistory()}
         onLogout={() => void onLogout()}
         onManageBilling={() => void onManageBilling()}
       />
 
-      <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />
-
-      <div className="flex flex-col border-b border-border lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[1.35fr_0.9fr] lg:overflow-hidden lg:divide-x lg:divide-border">
-        <RoutesPanel
-          routes={visibleRoutes}
+      {!isDesktop ? (
+        <MobileSidebar
+          open={mobileNavOpen}
+          section={mobileSection}
+          overview={overview}
+          requests={requests}
+          stressReports={reports}
           showToolTraffic={showToolTraffic}
-          onShowToolTrafficChange={setShowToolTraffic}
+          clearDisabled={running}
+          auth={authSummary}
+          showBilling={initial.billing.hasCustomer}
+          onClose={() => setMobileNavOpen(false)}
+          onSectionChange={setMobileSection}
+          onRefresh={onRefresh}
+          onClear={() => void onClearHistory()}
+          onLogout={() => void onLogout()}
+          onManageBilling={() => void onManageBilling()}
         />
-        <section className="flex min-h-[20rem] min-w-0 flex-col border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pl-8">
-          <AiChatPanel
-            latestRequest={visibleRequests[0] ?? null}
-            latestStress={lastReport ?? reports[0] ?? null}
-          />
-        </section>
-      </div>
+      ) : null}
 
-      <div className="flex flex-col pb-6 lg:grid lg:min-h-0 lg:flex-[0.85] lg:grid-cols-2 lg:overflow-hidden lg:divide-x lg:divide-border lg:pb-0">
-        <RequestHistory requests={visibleRequests} />
-        <StressPanel
-          demoApiBase={demoApiBase}
-          running={running}
-          stressGate={stressGate}
-          lastReport={lastReport}
-          reports={reports}
-          compare={compare}
-          onError={(message, title) => toast.error(message, title)}
-          onRun={onRunStress}
-        />
-      </div>
+      {!isDesktop ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {mobileSection === 'metrics' ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <RoutesPanel
+                  routes={visibleRoutes}
+                  showToolTraffic={showToolTraffic}
+                  onShowToolTrafficChange={setShowToolTraffic}
+                  className="min-h-full border-b-0 py-3"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {mobileSection === 'ask' ? (
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden py-2">
+              <AiChatPanel
+                latestRequest={visibleRequests[0] ?? null}
+                latestStress={lastReport ?? reports[0] ?? null}
+              />
+            </section>
+          ) : null}
+
+          {mobileSection === 'history' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <RequestHistory
+                requests={visibleRequests}
+                className="min-h-full border-b-0 py-3"
+              />
+            </div>
+          ) : null}
+
+          {mobileSection === 'load' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <StressPanel
+                demoApiBase={demoApiBase}
+                running={running}
+                stressGate={stressGate}
+                lastReport={lastReport}
+                reports={reports}
+                compare={compare}
+                className="min-h-full py-3"
+                onError={(message, title) => toast.error(message, title)}
+                onRun={onRunStress}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />
+
+          <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)] overflow-hidden divide-x divide-border border-b border-border">
+            <RoutesPanel
+              routes={visibleRoutes}
+              showToolTraffic={showToolTraffic}
+              onShowToolTrafficChange={setShowToolTraffic}
+            />
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden py-4 pl-6 xl:pl-8">
+              <AiChatPanel
+                latestRequest={visibleRequests[0] ?? null}
+                latestStress={lastReport ?? reports[0] ?? null}
+              />
+            </section>
+          </div>
+
+          <div className="grid min-h-0 min-w-0 flex-[0.85] grid-cols-2 overflow-hidden divide-x divide-border">
+            <RequestHistory requests={visibleRequests} />
+            <StressPanel
+              demoApiBase={demoApiBase}
+              running={running}
+              stressGate={stressGate}
+              lastReport={lastReport}
+              reports={reports}
+              compare={compare}
+              onError={(message, title) => toast.error(message, title)}
+              onRun={onRunStress}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

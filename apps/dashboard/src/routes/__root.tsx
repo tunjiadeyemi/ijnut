@@ -43,10 +43,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-svh overflow-x-hidden lg:h-svh lg:max-h-svh lg:overflow-hidden">
+      <body className="min-h-svh overflow-x-hidden">
         <ThemeProvider>
           <ToastProvider>
-            <div className="min-h-svh lg:h-svh lg:max-h-svh lg:overflow-hidden">{children}</div>
+            <div className="min-h-svh">{children}</div>
           </ToastProvider>
         </ThemeProvider>
         <Scripts />

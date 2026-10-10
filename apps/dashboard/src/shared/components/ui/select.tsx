@@ -107,7 +107,7 @@ export function Select({
         <ul
           id={listId}
           role="listbox"
-          className="border-border bg-card absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border py-1 shadow-md"
+          className="border-border bg-card absolute right-0 left-0 z-60 mt-1 max-h-48 w-full overflow-auto rounded-md border py-1 shadow-md"
         >
           {options.map((opt) => {
             const isActive = opt.value === value;

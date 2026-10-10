@@ -30,6 +30,23 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 
 ## Embed in your API (`@ijnut/sdk`)
 
+**NestJS:**
+
+```ts
+import { Module } from "@nestjs/common";
+import { IjnutModule } from "@ijnut/sdk/nest";
+
+@Module({
+  imports: [
+    IjnutModule.forRoot({
+      serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
+      stressAllowlist: "127.0.0.1,localhost,your-api.example",
+    }),
+  ],
+})
+export class AppModule {}
+```
+
 **Hono:**
 
 ```ts
@@ -45,10 +62,7 @@ app.use("*", ijnut.middleware());
 app.route("/observability", ijnut.app());
 ```
 
-**Express:** `createIjnut` from `@ijnut/sdk`  
-**NestJS:** `IjnutModule.forRoot(...)` from `@ijnut/sdk/nest`  
-
-See [`packages/sdk/README.md`](./packages/sdk/README.md).
+**Express:** `createIjnut` from `@ijnut/sdk` — see [`packages/sdk/README.md`](./packages/sdk/README.md).
 
 Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`).
 
@@ -69,13 +83,13 @@ Integrate @ijnut/sdk into this Node API so the IJNUT dashboard can show metrics 
 - Peers: install `express`, `hono`, or use Nest — match this project.
 
 ## Framework pick (use the one this repo uses)
+- **NestJS:** `IjnutModule.forRoot({...})` from `@ijnut/sdk/nest`
+  - Registers global metrics middleware + `/observability` controller.
+- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
+  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
 - **Express:** `createIjnut` from `@ijnut/sdk`
   - `app.use(ijnut.middleware())` early (before most routes).
   - `app.use("/observability", ijnut.router())`.
-- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
-  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
-- **NestJS:** `IjnutModule.forRoot({...})` from `@ijnut/sdk/nest`
-  - Registers global metrics middleware + `/observability` controller.
 
 ## Config
 - `serviceKey: process.env.OBSERVABILITY_SERVICE_KEY` (long random secret).

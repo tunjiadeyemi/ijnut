@@ -9,6 +9,25 @@ pnpm add @ijnut/sdk
 # peer: express and/or hono (both optional — install the one you use)
 ```
 
+## Quick start (NestJS)
+
+```ts
+import { Module } from "@nestjs/common";
+import { IjnutModule } from "@ijnut/sdk/nest";
+
+@Module({
+  imports: [
+    IjnutModule.forRoot({
+      serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
+      stressAllowlist: "127.0.0.1,localhost,your-api.example",
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+This registers metrics middleware on all routes and `/observability/*` (service-key protected). Inject the store with `@Inject(IJNUT_STORE)`.
+
 ## Quick start (Hono)
 
 ```ts
@@ -73,13 +92,13 @@ Integrate @ijnut/sdk into this Node API so the IJNUT dashboard can show metrics 
 - Peers: install `express`, `hono`, or use Nest — match this project.
 
 ## Framework pick (use the one this repo uses)
+- **NestJS:** `IjnutModule.forRoot({...})` from `@ijnut/sdk/nest`
+  - Registers global metrics middleware + `/observability` controller.
+- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
+  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
 - **Express:** `createIjnut` from `@ijnut/sdk`
   - `app.use(ijnut.middleware())` early (before most routes).
   - `app.use("/observability", ijnut.router())`.
-- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
-  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
-- **NestJS:** `IjnutModule.forRoot({...})` from `@ijnut/sdk/nest`
-  - Registers global metrics middleware + `/observability` controller.
 
 ## Config
 - `serviceKey: process.env.OBSERVABILITY_SERVICE_KEY` (long random secret).
@@ -241,32 +260,13 @@ const user = await withSpan(
 
 4. **Prisma SQL text** — use Prisma query events / logging (`$on("query")`) and `addSpan({ type: "db", meta: { sql } })`; don’t expect `tracedQuery` on the Prisma client itself.
 
-## Quick start (NestJS)
-
-```ts
-import { Module } from "@nestjs/common";
-import { IjnutModule } from "@ijnut/sdk/nest";
-
-@Module({
-  imports: [
-    IjnutModule.forRoot({
-      serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
-      stressAllowlist: "127.0.0.1,localhost,your-api.example",
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-This registers metrics middleware on all routes and `/observability/*` (service-key protected). Inject the store with `@Inject(IJNUT_STORE)`.
-
 ## Exports
 
 | Import | Runtime |
 |--------|---------|
-| `@ijnut/sdk` | Express (`createIjnut`) |
-| `@ijnut/sdk/hono` | Hono (`createIjnutHono`) |
 | `@ijnut/sdk/nest` | NestJS (`IjnutModule`) |
+| `@ijnut/sdk/hono` | Hono (`createIjnutHono`) |
+| `@ijnut/sdk` | Express (`createIjnut`) |
 
 ## Env
 
