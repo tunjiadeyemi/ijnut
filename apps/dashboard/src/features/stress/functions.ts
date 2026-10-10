@@ -4,9 +4,20 @@ import { obsFetch } from '@/shared/api/client.server';
 import type { StressInput, StressReport } from '@/shared/api/types';
 export type { StressInput, StressReport } from '@/shared/api/types';
 
-export const fetchStressReports = createServerFn({ method: 'GET' }).handler(async () =>
-  obsFetch<{ reports: StressReport[] }>('/observability/stress')
-);
+export const fetchStressReports = createServerFn({ method: 'GET' }).handler(async () => {
+  try {
+    const body = await obsFetch<unknown>('/observability/stress');
+    if (Array.isArray(body)) {
+      return { reports: body as StressReport[] };
+    }
+    if (body && typeof body === 'object' && Array.isArray((body as { reports?: unknown }).reports)) {
+      return { reports: (body as { reports: StressReport[] }).reports };
+    }
+    return { reports: [] as StressReport[] };
+  } catch {
+    return { reports: [] as StressReport[] };
+  }
+});
 
 export const runStressTest = createServerFn({ method: 'POST' })
   .validator((data: StressInput) => data)

@@ -5,8 +5,15 @@ import type {
   StressReport,
 } from "@/shared/api/types";
 
+/** SDK / dashboard self-traffic (hidden unless Tools is checked). */
 export function isToolTraffic(routeOrPath: string): boolean {
-  return routeOrPath.includes("/observability");
+  return (
+    routeOrPath.includes("/observability") ||
+    // Older Hono SDK builds stripped the mount prefix from the route key
+    /^(GET|POST|DELETE|PUT|PATCH) \/(overview|requests|stress|history)(\/|$)/.test(
+      routeOrPath,
+    )
+  );
 }
 
 export function filterVisibleRoutes(

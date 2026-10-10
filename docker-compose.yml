@@ -107,7 +107,6 @@ services:
       # BFF only — auth/Gemini/billing/DB are on api
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       OBSERVABILITY_API_URL: http://api:3000
-      IJNUT_PUBLIC_API_URL: ${IJNUT_PUBLIC_API_URL:-http://localhost:3000}
       OBSERVABILITY_SERVICE_KEY: ${OBSERVABILITY_SERVICE_KEY:-change-me}
     depends_on:
       api:

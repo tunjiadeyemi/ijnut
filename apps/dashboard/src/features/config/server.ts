@@ -54,14 +54,25 @@ function normalizeBaseUrl(raw: string): string {
   return `https://${trimmed}`;
 }
 
-/** URL stress / Demo API UI should use (public hostname, not docker-internal). */
+/**
+ * Suggested stress target — same as OBSERVABILITY_API_URL.
+ * In Docker Compose the BFF uses http://api:3000; remap that host to localhost
+ * so the browser can reach the published port.
+ */
 export function getPublicApiUrl(): string {
-  return normalizeBaseUrl(
-    process.env.IJNUT_PUBLIC_API_URL?.trim() ||
-      process.env.DEMO_PUBLIC_URL?.trim() ||
-      process.env.OBSERVABILITY_API_URL?.trim() ||
-      'http://127.0.0.1:3000'
+  const base = normalizeBaseUrl(
+    process.env.OBSERVABILITY_API_URL?.trim() || 'http://127.0.0.1:3000'
   );
+  try {
+    const u = new URL(base);
+    if (u.hostname === 'api') {
+      u.hostname = 'localhost';
+      return u.toString().replace(/\/$/, '');
+    }
+  } catch {
+    // ignore
+  }
+  return base;
 }
 
 export function isAiGated(): boolean {

@@ -47,12 +47,19 @@ export function DashboardPage({
   const toast = useToast();
   const demoApiBase = initial.config.publicApiUrl;
 
-  const [overview, setOverview] = useState<OverviewResponse>(initial.overview);
-  const [requests, setRequests] = useState<RequestRecord[]>(initial.requests.requests);
-  const [reports, setReports] = useState<StressReport[]>(initial.stress.reports);
+  const initialRoutes = initial.overview?.routes ?? [];
+  const initialRequests = initial.requests?.requests ?? [];
+  const initialReports = initial.stress?.reports ?? [];
+
+  const [overview, setOverview] = useState<OverviewResponse>({
+    routes: initialRoutes,
+    updatedAt: initial.overview?.updatedAt ?? new Date().toISOString()
+  });
+  const [requests, setRequests] = useState<RequestRecord[]>(initialRequests);
+  const [reports, setReports] = useState<StressReport[]>(initialReports);
   const [beforeSnap, setBeforeSnap] = useState<RouteAggregate[] | null>(null);
   const [lastReport, setLastReport] = useState<StressReport | null>(
-    initial.stress.reports[0] ?? null
+    initialReports[0] ?? null
   );
   const [running, setRunning] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -80,10 +87,14 @@ export function DashboardPage({
       fetchRequests({ data: { limit: 40 } }),
       fetchStressReports()
     ]);
-    setOverview(ov);
-    setRequests(req.requests);
-    setReports(st.reports);
-    if (st.reports[0]) setLastReport(st.reports[0]);
+    setOverview({
+      routes: ov?.routes ?? [],
+      updatedAt: ov?.updatedAt ?? new Date().toISOString()
+    });
+    setRequests(req?.requests ?? []);
+    const nextReports = st?.reports ?? [];
+    setReports(nextReports);
+    if (nextReports[0]) setLastReport(nextReports[0]);
   }
 
   useEffect(() => {

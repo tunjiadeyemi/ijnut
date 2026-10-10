@@ -1,7 +1,12 @@
 import type { OverviewResponse, RequestRecord, StressReport } from '@/shared/api/types';
 
 function isToolTraffic(routeOrPath: string): boolean {
-  return routeOrPath.includes('/observability');
+  return (
+    routeOrPath.includes('/observability') ||
+    /^(GET|POST|DELETE|PUT|PATCH) \/(overview|requests|stress|history)(\/|$)/.test(
+      routeOrPath
+    )
+  );
 }
 
 function pct(n: number): string {
