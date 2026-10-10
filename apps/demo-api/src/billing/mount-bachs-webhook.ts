@@ -7,7 +7,7 @@ import {
 } from "./bachs.client";
 
 /**
- * Public Bachs webhook (no ADMIN_TOKEN). Mounted with raw body for signatures.
+ * Public Bachs webhook (no observability service key). Mounted with raw body for signatures.
  * Prefer pointing Bachs at the API:
  *   https://<demo-api>/api/bachs/webhook
  */

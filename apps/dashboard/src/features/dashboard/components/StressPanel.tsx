@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2, Play } from 'lucide-react';
 
 import { DEMO_PATHS } from '../utils/constants';
+import { formatClockTime } from '../utils/format';
 import { parseHeadersText } from '../utils/headers';
 import type { RouteAggregate, StressInput, StressReport } from '@/shared/api/types';
 
@@ -21,16 +22,26 @@ type Props = {
   running: boolean;
   stressGate: string | null;
   lastReport: StressReport | null;
+  reports: StressReport[];
   compare: Compare;
   onError: (message: string, title?: string) => void;
   onRun: (input: StressInput) => Promise<void>;
 };
+
+function statusCodesSummary(codes: Record<string, number> | undefined): string {
+  if (!codes) return '—';
+  const parts = Object.entries(codes)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([code, n]) => `${code}×${n}`);
+  return parts.length ? parts.join(' ') : '—';
+}
 
 export function StressPanel({
   demoApiBase,
   running,
   stressGate,
   lastReport,
+  reports,
   compare,
   onError,
   onRun
@@ -275,13 +286,43 @@ export function StressPanel({
       </form>
 
       {lastReport ? (
-        <p className="text-muted-foreground border-t border-border pt-2 font-mono text-xs tabular-nums">
-          {lastReport.requestsPerSec.toFixed(0)} rps · p95{' '}
-          <span className={latencyTextClass(lastReport.p95ms)}>{lastReport.p95ms}ms</span> · err{' '}
-          {lastReport.errors}
-          {compare ? (
-            <>
-              {' · '}
+        <div className="border-t border-border pt-3">
+          <p className="text-foreground mb-2 text-xs font-medium">Load test result</p>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-xs tabular-nums sm:grid-cols-3">
+            <div>
+              <dt className="text-muted-foreground">RPS</dt>
+              <dd>{lastReport.requestsPerSec.toFixed(1)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">p50</dt>
+              <dd className={latencyTextClass(lastReport.p50ms)}>{lastReport.p50ms}ms</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">p95</dt>
+              <dd className={latencyTextClass(lastReport.p95ms)}>{lastReport.p95ms}ms</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">p99</dt>
+              <dd className={latencyTextClass(lastReport.p99ms)}>{lastReport.p99ms}ms</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Errors</dt>
+              <dd>{lastReport.errors}</dd>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <dt className="text-muted-foreground">Status</dt>
+              <dd className="break-all">{statusCodesSummary(lastReport.statusCodes)}</dd>
+            </div>
+          </dl>
+          {!useDemoApi ? (
+            <p className="text-muted-foreground mt-2 text-[11px] leading-snug">
+              Live targets only produce this report. Routes / request history need the
+              observability middleware on that API.
+            </p>
+          ) : null}
+          {compare?.before || compare?.after ? (
+            <p className="text-muted-foreground mt-2 font-mono text-[11px] tabular-nums">
+              Demo route p95:{' '}
               <span className={latencyTextClass(compare.before?.p95ms)}>
                 {compare.before?.p95ms ?? '—'}
               </span>
@@ -289,9 +330,24 @@ export function StressPanel({
               <span className={latencyTextClass(compare.after?.p95ms)}>
                 {compare.after?.p95ms ?? '—'}
               </span>
-            </>
+            </p>
           ) : null}
+        </div>
+      ) : (
+        <p className="text-muted-foreground border-t border-border pt-2 text-xs">
+          No load test yet — run one to see RPS and latency here.
         </p>
+      )}
+
+      {reports.length > 1 ? (
+        <ul className="text-muted-foreground max-h-24 space-y-1 overflow-y-auto border-t border-border pt-2 font-mono text-[11px] tabular-nums">
+          {reports.slice(0, 5).map((r) => (
+            <li key={r.id}>
+              {r.requestsPerSec.toFixed(1)} rps · p95 {r.p95ms}ms · err {r.errors} ·{' '}
+              {formatClockTime(r.finishedAt)}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </section>
   );

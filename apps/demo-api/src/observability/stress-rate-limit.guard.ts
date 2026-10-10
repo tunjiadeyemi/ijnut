@@ -12,7 +12,7 @@ export class StressRateLimitGuard implements CanActivate {
   private readonly limiter: FixedWindowRateLimiter;
 
   constructor() {
-    const perMin = Number(process.env.STRESS_RATE_LIMIT_PER_MIN ?? 1);
+    const perMin = Number(process.env.STRESS_RATE_LIMIT_PER_MIN ?? 10);
     this.limiter = new FixedWindowRateLimiter(perMin, 60_000);
   }
 

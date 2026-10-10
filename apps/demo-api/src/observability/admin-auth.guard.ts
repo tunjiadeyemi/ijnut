@@ -5,21 +5,25 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import type { Request } from "express";
+import { getObservabilityServiceKey } from "./service-key";
 
 /**
- * Fail-closed admin auth for /observability/* (except health).
- * Accepts Authorization: Bearer <token> or x-admin-key: <token>.
+ * Fail-closed auth for /observability/* (except health).
+ * Accepts Authorization: Bearer <key>, x-observability-service-key, or legacy x-admin-key.
  */
 @Injectable()
 export class AdminAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const expected = process.env.ADMIN_TOKEN;
+    const expected = getObservabilityServiceKey();
     if (!expected) {
-      throw new UnauthorizedException("ADMIN_TOKEN is not configured");
+      throw new UnauthorizedException(
+        "OBSERVABILITY_SERVICE_KEY is not configured",
+      );
     }
 
     const req = context.switchToHttp().getRequest<Request>();
-    const headerKey = req.header("x-admin-key");
+    const headerKey =
+      req.header("x-observability-service-key") || req.header("x-admin-key");
     const auth = req.header("authorization");
     let provided: string | undefined = headerKey ?? undefined;
 
@@ -28,7 +32,9 @@ export class AdminAuthGuard implements CanActivate {
     }
 
     if (!provided || provided !== expected) {
-      throw new UnauthorizedException("Invalid or missing admin credentials");
+      throw new UnauthorizedException(
+        "Invalid or missing observability service key",
+      );
     }
 
     return true;

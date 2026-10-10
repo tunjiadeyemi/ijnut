@@ -2,12 +2,14 @@
  * better-auth lives on demo-api. Dashboard proxies /api/auth/* here.
  * baseURL is the public dashboard URL (OAuth redirects / cookies via BFF).
  */
+import "../load-env";
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
 function authSecret(): string {
   const secret =
     process.env.BETTER_AUTH_SECRET?.trim() ||
+    process.env.OBSERVABILITY_SERVICE_KEY?.trim() ||
     process.env.ADMIN_TOKEN?.trim() ||
     "dev-only-ijnut-auth-secret-change-me";
   if (secret.length < 32) {

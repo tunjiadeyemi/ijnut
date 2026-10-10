@@ -1,5 +1,4 @@
-import { config } from "dotenv";
-import { resolve } from "node:path";
+import "./load-env";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { NestFactory } from "@nestjs/core";
@@ -8,18 +7,6 @@ import { AppModule } from "./app.module";
 import { auth } from "./auth/auth";
 import { ensureAuthSchema } from "./auth/auth-db-check";
 import { mountBachsWebhook } from "./billing/mount-bachs-webhook";
-
-// Env load order (never override Compose/Railway-injected vars):
-// 1) repo-root .env (monorepo convenience)
-// 2) apps/demo-api/.env (preferred for this service)
-config({
-  path: resolve(process.cwd(), "../../.env"),
-  override: false,
-});
-config({
-  path: resolve(process.cwd(), ".env"),
-  override: false,
-});
 
 async function bootstrap() {
   const { toNodeHandler } = await import("better-auth/node");

@@ -22,7 +22,7 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 - `POST /observability/stress` with **allowlist**, **caps**, and **rate limit (429)**
 - Demo URL shortener: Postgres source of truth, Redis cache, `X-Cache: HIT|MISS|BYPASS`
 - Dashboard open to guests; optional **better-auth** (email/password + GitHub + password reset)
-- BFF uses server `OBSERVABILITY_ADMIN_TOKEN` for `/observability/*` (never paste admin key in the UI)
+- BFF uses server `OBSERVABILITY_SERVICE_KEY` for `/observability/*` (never paste the service key in the UI)
 - Demo / Live base URL, custom methods, headers, body; calm 100svh metrics UI
 - Optional **Gemini chat** (explain requests, summarize load tests, suggest fixes)
 - **Agent report** — markdown snapshot you can copy into Cursor / any coding agent
@@ -56,7 +56,7 @@ docker compose up --build
 | Demo API  | http://localhost:3000 |
 | Health    | http://localhost:3000/health |
 
-Open the dashboard as a guest. Sign in (email or GitHub) only if you want Cloud AI. Obs API still uses `ADMIN_TOKEN` on the server BFF (default `change-me`).
+Open the dashboard as a guest. Sign in (email or GitHub) only if you want Cloud AI. Obs API uses `OBSERVABILITY_SERVICE_KEY` on the server BFF (default `change-me`).
 
 ```bash
 pnpm docker:down
@@ -91,8 +91,8 @@ pnpm docker:up && pnpm --filter demo-api dev
 cp apps/dashboard/.env.example apps/dashboard/.env
 # OBSERVABILITY_API_URL=http://127.0.0.1:3000
 # IJNUT_CLOUD_AI_URL=https://your-cloud-ai.up.railway.app
-# IJNUT_CLOUD_AI_ADMIN_TOKEN=<Cloud AI ADMIN_TOKEN>
-# OBSERVABILITY_ADMIN_TOKEN=<local ADMIN_TOKEN>
+# IJNUT_CLOUD_AI_SERVICE_KEY=<Cloud AI OBSERVABILITY_SERVICE_KEY>
+# OBSERVABILITY_SERVICE_KEY=<local service key>
 # IJNUT_MODE=cloud
 pnpm --filter dashboard dev
 ```
@@ -147,11 +147,10 @@ Optional combined local file: [`.env.example`](./.env.example).
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `ADMIN_TOKEN` | API | Service key for `/observability/*` |
-| `OBSERVABILITY_ADMIN_TOKEN` | Dashboard | Same value as `ADMIN_TOKEN` |
+| `OBSERVABILITY_SERVICE_KEY` | API + Dashboard | Shared key for `/observability/*` (legacy: `ADMIN_TOKEN`) |
 | `OBSERVABILITY_API_URL` | Dashboard | Local API (metrics / stress) |
 | `IJNUT_CLOUD_AI_URL` | Dashboard | Optional Cloud AI host (auth / AI / billing) |
-| `IJNUT_CLOUD_AI_ADMIN_TOKEN` | Dashboard | Cloud AI `ADMIN_TOKEN` if different from local |
+| `IJNUT_CLOUD_AI_SERVICE_KEY` | Dashboard | Cloud AI service key if different from local |
 | `BETTER_AUTH_SECRET` | Cloud AI API | Signs session cookies (not a user password) |
 | `BETTER_AUTH_URL` | Both | Public **dashboard** origin (OAuth + cookies) |
 | `DATABASE_URL` / `REDIS_URL` | API | Postgres + Redis |
@@ -160,7 +159,7 @@ Optional combined local file: [`.env.example`](./.env.example).
 | `IJNUT_MODE` / `IJNUT_PLAN` | AI host (+ dashboard mode hint) | `cloud` gates AI; `selfhost` = BYO unlimited |
 | `COOKIE_SECURE` | Dashboard | `true` only behind HTTPS |
 
-**Never** put admin/auth secrets in `VITE_*`. `plan` / `aiRemaining` are authorized on the Cloud AI API only.
+**Never** put the observability service key or auth secrets in `VITE_*`. `plan` / `aiRemaining` are authorized on the Cloud AI API only.
 
 ## Demo tips
 
@@ -175,7 +174,7 @@ Optional combined local file: [`.env.example`](./.env.example).
 1. **In-memory metrics** die on restart; multi-instance needs shared aggregation.
 2. **Stress colocated** with the API skews CPU — fine for portfolio; isolate the runner in production.
 3. **Route normalization** is required or cardinality explodes.
-4. **Admin token** stays server-side in the dashboard BFF.
+4. **Observability service key** stays server-side in the dashboard BFF.
 5. Stress **allowlist** + caps prevent open-proxy abuse (this is not a public load gun).
 6. Cloud AI quota is **per-user** (`aiUsed`); chat memory in `ai_chat_message`; Bachs sets `plan=pro`.
 

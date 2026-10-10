@@ -121,6 +121,6 @@ curl -s -X POST http://127.0.0.1:3000/observability/stress \
 
 - Default stress rate limit is **1 run / minute**. For back-to-back RESULTS runs locally: `STRESS_RATE_LIMIT_PER_MIN=10 pnpm --filter demo-api dev`.
 - Postgres is mapped to host **5433** in this repo (`DATABASE_URL=...@127.0.0.1:5433/...`) to avoid clashing with other local Postgres on 5432.
-- Dashboard BFF: `pnpm --filter dashboard dev` → http://127.0.0.1:3001 (admin token server-side only).
+- Dashboard BFF: `pnpm --filter dashboard dev` → http://127.0.0.1:3001 (observability service key server-side only).
 - Optional AI chat (Gemini): set `GEMINI_API_KEY` in root `.env`, restart dashboard; panel is on the right (explain / summarize / suggest + free chat).
 - Agent report: dashboard **Copy for agent** pastes a prompt + markdown metrics snapshot into your clipboard.

@@ -7,8 +7,9 @@
 import { resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
 
-loadEnv({ path: resolve(process.cwd(), '../../.env') });
-loadEnv({ path: resolve(process.cwd(), '.env') });
+// App .env first (preferred); root only fills missing keys. Never override real env.
+loadEnv({ path: resolve(process.cwd(), '.env'), override: false });
+loadEnv({ path: resolve(process.cwd(), '../../.env'), override: false });
 
 /** Ensure absolute URL — host-only Railway values need https:// */
 export function normalizeBaseUrl(raw: string): string {
@@ -46,20 +47,27 @@ export function usesSplitCloudAi(): boolean {
   return normalizeBaseUrl(cloud) !== getApiUrl();
 }
 
-/** Server-only token for local /observability/* — never from the browser. */
-export function getObsAdminToken(): string | undefined {
+/** Server-only observability service key for local /observability/* — never from the browser. */
+export function getObservabilityServiceKey(): string | undefined {
   return (
-    process.env.OBSERVABILITY_ADMIN_TOKEN?.trim() ||
-    process.env.ADMIN_TOKEN?.trim() ||
+    process.env.OBSERVABILITY_SERVICE_KEY?.trim() ||
+    process.env.OBSERVABILITY_ADMIN_TOKEN?.trim() || // legacy
+    process.env.ADMIN_TOKEN?.trim() || // legacy
     undefined
   );
 }
 
-/** Token for Cloud AI host (may match local, or IJNUT_CLOUD_AI_ADMIN_TOKEN). */
-export function getCloudAiAdminToken(): string | undefined {
+/** @deprecated use getObservabilityServiceKey */
+export function getObsAdminToken(): string | undefined {
+  return getObservabilityServiceKey();
+}
+
+/** Service key for Cloud AI host (may match local). */
+export function getCloudAiServiceKey(): string | undefined {
   return (
-    process.env.IJNUT_CLOUD_AI_ADMIN_TOKEN?.trim() ||
-    getObsAdminToken()
+    process.env.IJNUT_CLOUD_AI_SERVICE_KEY?.trim() ||
+    process.env.IJNUT_CLOUD_AI_ADMIN_TOKEN?.trim() || // legacy
+    getObservabilityServiceKey()
   );
 }
 
@@ -117,10 +125,10 @@ async function apiFetch<T>(
 export async function obsFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return apiFetch(
     getApiUrl(),
-    getObsAdminToken(),
+    getObservabilityServiceKey(),
     path,
     init,
-    'OBSERVABILITY_ADMIN_TOKEN (or ADMIN_TOKEN) is not configured on the server'
+    'OBSERVABILITY_SERVICE_KEY is not configured on the dashboard server'
   );
 }
 
@@ -131,9 +139,9 @@ export async function cloudAiFetch<T>(
 ): Promise<T> {
   return apiFetch(
     getCloudAiUrl(),
-    getCloudAiAdminToken(),
+    getCloudAiServiceKey(),
     path,
     init,
-    'IJNUT_CLOUD_AI_ADMIN_TOKEN or OBSERVABILITY_ADMIN_TOKEN is not configured'
+    'IJNUT_CLOUD_AI_SERVICE_KEY or OBSERVABILITY_SERVICE_KEY is not configured'
   );
 }

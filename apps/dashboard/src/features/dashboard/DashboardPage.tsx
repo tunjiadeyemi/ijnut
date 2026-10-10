@@ -225,6 +225,7 @@ export function DashboardPage({
           running={running}
           stressGate={stressGate}
           lastReport={lastReport}
+          reports={reports}
           compare={compare}
           onError={(message, title) => toast.error(message, title)}
           onRun={onRunStress}

@@ -100,7 +100,7 @@ export class ObservabilityController {
   }
 
   /**
-   * AI status — admin token required so a public API URL alone cannot probe Gemini.
+   * AI status — observability service key required so a public API URL alone cannot probe AI.
    * Cloud quota uses better-auth session token (X-Ijnut-Session-Token).
    */
   @Get("ai/status")
@@ -140,7 +140,7 @@ export class ObservabilityController {
   }
 
   /**
-   * AI chat — ADMIN_TOKEN (dashboard BFF). Cloud mode also requires a
+   * AI chat — observability service key (dashboard BFF). Cloud mode also requires a
    * better-auth session, quota, and persists chat memory.
    * Metrics context may be supplied in the body (local API → Cloud AI sidecar).
    */

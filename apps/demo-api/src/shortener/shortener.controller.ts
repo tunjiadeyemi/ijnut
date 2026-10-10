@@ -15,6 +15,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Response } from "express";
+import { getObservabilityServiceKey } from "../observability/service-key";
 import { ShortenerService } from "./shortener.service";
 import { PublicRateLimitGuard } from "./public-rate-limit.guard";
 
@@ -63,15 +64,15 @@ export class ShortenerController {
     @Headers("x-api-key") apiKey?: string,
   ) {
     const key = requireApiKey(apiKey);
-    const admin = process.env.ADMIN_TOKEN ?? "change-me";
+    const serviceKey = getObservabilityServiceKey() ?? "change-me";
     const userKey = process.env.DEMO_USER_API_KEY ?? "demo-user";
 
     if (key === userKey) {
       throw new ForbiddenException(
-        "User role cannot bust cache (admin only) — 403",
+        "User role cannot bust cache (service key only) — 403",
       );
     }
-    if (key !== admin) {
+    if (key !== serviceKey) {
       throw new UnauthorizedException("Invalid x-api-key");
     }
     await this.shortener.bustCache(code);
@@ -81,7 +82,7 @@ export class ShortenerController {
    * Delete a short link.
    * - missing key → 401
    * - DEMO_USER_API_KEY → 403 (authorization: user cannot delete)
-   * - ADMIN_TOKEN → 204
+   * - OBSERVABILITY_SERVICE_KEY → 204
    */
   @Delete("shorten/:code")
   @HttpCode(204)
@@ -90,15 +91,15 @@ export class ShortenerController {
     @Headers("x-api-key") apiKey?: string,
   ) {
     const key = requireApiKey(apiKey);
-    const admin = process.env.ADMIN_TOKEN ?? "change-me";
+    const serviceKey = getObservabilityServiceKey() ?? "change-me";
     const userKey = process.env.DEMO_USER_API_KEY ?? "demo-user";
 
     if (key === userKey) {
       throw new ForbiddenException(
-        "User role cannot delete links (admin only) — 403",
+        "User role cannot delete links (service key only) — 403",
       );
     }
-    if (key !== admin) {
+    if (key !== serviceKey) {
       throw new UnauthorizedException("Invalid x-api-key");
     }
 

@@ -6,8 +6,8 @@
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 
-loadEnv({ path: resolve(process.cwd(), '../../.env') });
-loadEnv({ path: resolve(process.cwd(), '.env') });
+loadEnv({ path: resolve(process.cwd(), '.env'), override: false });
+loadEnv({ path: resolve(process.cwd(), '../../.env'), override: false });
 
 export type IjnutMode = 'cloud' | 'selfhost';
 export type IjnutPlan = 'free' | 'pro';
