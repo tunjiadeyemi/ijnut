@@ -31,4 +31,13 @@ export async function ensureAuthSchema(): Promise<void> {
       err,
     );
   }
+
+  try {
+    const { ensureAiChatSchema } = await import(
+      "../observability/ai-chat-memory"
+    );
+    await ensureAiChatSchema();
+  } catch (err) {
+    console.error("[auth] AI chat memory schema ensure failed", err);
+  }
 }

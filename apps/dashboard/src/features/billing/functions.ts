@@ -8,7 +8,7 @@ async function sessionHeaders(): Promise<Record<string, string>> {
 }
 
 export const getBillingStatus = createServerFn({ method: 'GET' }).handler(async () => {
-  const { obsFetch } = await import('@/shared/api/client.server');
+  const { cloudAiFetch } = await import('@/shared/api/client.server');
   const { getSession, resolveAiAccess } = await import(
     '@/features/auth/server/session.server'
   );
@@ -20,12 +20,12 @@ export const getBillingStatus = createServerFn({ method: 'GET' }).handler(async 
   let configured = false;
   let hasCustomer = false;
   try {
-    const status = await obsFetch<{ configured: boolean }>(
+    const status = await cloudAiFetch<{ configured: boolean }>(
       '/observability/billing/status'
     );
     configured = status.configured;
     if (session?.user) {
-      const me = await obsFetch<{
+      const me = await cloudAiFetch<{
         authenticated: boolean;
         customerId: string | null;
       }>('/observability/billing/me', { headers });
@@ -44,10 +44,10 @@ export const getBillingStatus = createServerFn({ method: 'GET' }).handler(async 
 });
 
 export const createCheckout = createServerFn({ method: 'POST' }).handler(async () => {
-  const { obsFetch } = await import('@/shared/api/client.server');
+  const { cloudAiFetch } = await import('@/shared/api/client.server');
   const headers = await sessionHeaders();
   try {
-    return await obsFetch<
+    return await cloudAiFetch<
       | { ok: true; url: string }
       | { ok: false; message: string; needsAuth?: boolean }
     >('/observability/billing/checkout', {
@@ -64,10 +64,10 @@ export const createCheckout = createServerFn({ method: 'POST' }).handler(async (
 });
 
 export const createPortal = createServerFn({ method: 'POST' }).handler(async () => {
-  const { obsFetch } = await import('@/shared/api/client.server');
+  const { cloudAiFetch } = await import('@/shared/api/client.server');
   const headers = await sessionHeaders();
   try {
-    return await obsFetch<
+    return await cloudAiFetch<
       | { ok: true; url: string }
       | { ok: false; message: string; needsAuth?: boolean }
     >('/observability/billing/portal', {

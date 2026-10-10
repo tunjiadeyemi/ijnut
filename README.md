@@ -6,13 +6,13 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 
 ## Choose a path
 
-| Path | What you run | Who pays for Gemini / stress CPU |
-|------|----------------|----------------------------------|
-| **Self-host** (default) | Full stack on your machine / VPS | You (bring your own `GEMINI_API_KEY`) |
-| **IJNUT Cloud** (optional) | Dashboard only → operator’s hosted API | Operator — free tier is **gated**; upgrade or self-host when limited |
-| **Cloud pro** | Same hosted API with `IJNUT_PLAN=pro` | Operator (paid later; flag unlocks limits today) |
+| Path | What you run | Who pays |
+|------|----------------|----------|
+| **Self-host** (default) | Local API + dashboard; BYO `GEMINI_API_KEY` / `COHERE_API_KEY` | You |
+| **Cloud AI** (optional) | Local API for metrics/stress + hosted Cloud AI for chat | Operator — gated AI + **chat memory**; subscribe or self-host AI |
+| **Cloud AI pro** | Same, after Bachs subscribe (`plan=pro`) | Operator (unlimited Cloud AI) |
 
-Core metrics and the shortener stay available on free Cloud (guests welcome). **Gemini chat** and aggressive **stress** are what get limited — those are the cost drivers.
+**Metrics, stress, and allowlists always run on your API** (`pnpm` / Docker). Cloud only sells authenticated AI (quota + persisted memory). Stress is never paywalled.
 
 ## Features
 
@@ -26,7 +26,7 @@ Core metrics and the shortener stay available on free Cloud (guests welcome). **
 - Demo / Live base URL, custom methods, headers, body; calm 100svh metrics UI
 - Optional **Gemini chat** (explain requests, summarize load tests, suggest fixes)
 - **Agent report** — markdown snapshot you can copy into Cursor / any coding agent
-- Cloud free: **3 lifetime AI messages** after sign-in, then dim panel + subscribe CTA; self-host unlimited with BYO Gemini
+- Cloud AI: **3 lifetime messages** after sign-in + **persisted chat memory**, then subscribe CTA; self-host unlimited with BYO keys
 
 ## Monorepo layout
 
@@ -77,24 +77,29 @@ pnpm dev
 # API → :3000   Dashboard → :3001
 ```
 
-## Quickstart — try IJNUT Cloud (no Docker for you)
+## Quickstart — Cloud AI + local API
 
-When a public API is deployed (VPS/PaaS running this Compose stack):
+Run **your** API locally (metrics/stress/allowlist). Point the dashboard at a hosted Cloud AI API for sign-in, gated chat, and memory.
 
 ```bash
-pnpm install
+# Terminal A — local observability API
+cp apps/demo-api/.env.example apps/demo-api/.env
+# IJNUT_MODE=selfhost  (default) — no AI keys required if using Cloud AI
+pnpm docker:up && pnpm --filter demo-api dev
+
+# Terminal B — dashboard
 cp apps/dashboard/.env.example apps/dashboard/.env
-# Point at the hosted API (example — replace with the real URL when live)
-# OBSERVABILITY_API_URL=https://api.ijnut.example
-# IJNUT_PUBLIC_API_URL=https://api.ijnut.example
-# OBSERVABILITY_ADMIN_TOKEN=<same as API ADMIN_TOKEN>
+# OBSERVABILITY_API_URL=http://127.0.0.1:3000
+# IJNUT_CLOUD_AI_URL=https://your-cloud-ai.up.railway.app
+# IJNUT_CLOUD_AI_ADMIN_TOKEN=<Cloud AI ADMIN_TOKEN>
+# OBSERVABILITY_ADMIN_TOKEN=<local ADMIN_TOKEN>
 # IJNUT_MODE=cloud
 pnpm --filter dashboard dev
 ```
 
-Open the hosted dashboard as a guest (metrics/stress/agent report). Sign in for **3 free AI messages**, then subscribe CTA (or self-host with your own Gemini key). Stress stays rate-limited on free Cloud.
+Sign in for **3 free Cloud AI messages** (memory persists). Subscribe via Bachs for unlimited Cloud AI, or set keys on the local API with `IJNUT_MODE=selfhost` and omit `IJNUT_CLOUD_AI_URL`.
 
-**Host operators:** set `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, GitHub OAuth secrets, keep `STRESS_ALLOWLIST` tight, and set `GEMINI_API_KEY` or `COHERE_API_KEY` on the **API**. Until you deploy, the open-source path is self-host only — no VPS required for contributors.
+**Cloud AI operators:** deploy demo-api with `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, OAuth, `GEMINI_API_KEY` or `COHERE_API_KEY`, and Bachs. Keep `STRESS_ALLOWLIST` tight on that host if you expose stress at all.
 
 ## Smoke checks (self-host)
 
@@ -144,22 +149,24 @@ Optional combined local file: [`.env.example`](./.env.example).
 |----------|--------|---------|
 | `ADMIN_TOKEN` | API | Service key for `/observability/*` |
 | `OBSERVABILITY_ADMIN_TOKEN` | Dashboard | Same value as `ADMIN_TOKEN` |
-| `OBSERVABILITY_API_URL` | Dashboard | API base URL |
-| `BETTER_AUTH_SECRET` | API only | Signs session cookies (not a user password) |
+| `OBSERVABILITY_API_URL` | Dashboard | Local API (metrics / stress) |
+| `IJNUT_CLOUD_AI_URL` | Dashboard | Optional Cloud AI host (auth / AI / billing) |
+| `IJNUT_CLOUD_AI_ADMIN_TOKEN` | Dashboard | Cloud AI `ADMIN_TOKEN` if different from local |
+| `BETTER_AUTH_SECRET` | Cloud AI API | Signs session cookies (not a user password) |
 | `BETTER_AUTH_URL` | Both | Public **dashboard** origin (OAuth + cookies) |
 | `DATABASE_URL` / `REDIS_URL` | API | Postgres + Redis |
-| `AI_PROVIDER` / `GEMINI_*` / `COHERE_*` | API | AI (`gemini` or `cohere`) |
-| `BACHS_*` / `GITHUB_*` | API | Billing, OAuth |
-| `IJNUT_MODE` / `IJNUT_PLAN` | Both (API enforces) | `cloud` vs `selfhost` freemium |
+| `AI_PROVIDER` / `GEMINI_*` / `COHERE_*` | AI host | AI (`gemini` or `cohere`) |
+| `BACHS_*` / `GITHUB_*` | Cloud AI API | Billing, OAuth |
+| `IJNUT_MODE` / `IJNUT_PLAN` | AI host (+ dashboard mode hint) | `cloud` gates AI; `selfhost` = BYO unlimited |
 | `COOKIE_SECURE` | Dashboard | `true` only behind HTTPS |
 
-**Never** put admin/auth secrets in `VITE_*`. `plan` / `aiRemaining` are authorized on the API only.
+**Never** put admin/auth secrets in `VITE_*`. `plan` / `aiRemaining` are authorized on the Cloud AI API only.
 
 ## Demo tips
 
 1. Dashboard (guest) → create a short code via Demo API, warm Redis, run stress → hit vs miss ([`RESULTS.md`](./RESULTS.md)).
-2. Stress twice quickly → **429** (and Cloud free shows upgrade/self-host CTA).
-3. Cloud: sign in → 3 AI messages → panel dims → **Subscribe** ([Bachs](https://bachs.io/)) → webhook sets `plan=pro`.
+2. Stress twice quickly → **429** (local rate limit — raise `STRESS_RATE_LIMIT_PER_MIN`).
+3. Cloud AI: sign in → 3 messages + memory → panel dims → **Subscribe** ([Bachs](https://bachs.io/)) → webhook sets `plan=pro`.
 4. `DELETE /shorten/:code` with `x-api-key: demo-user` → **403**; missing key → **401**.
 5. **Agent report** → copy into Cursor and ask for a bottleneck write-up.
 
@@ -170,7 +177,7 @@ Optional combined local file: [`.env.example`](./.env.example).
 3. **Route normalization** is required or cardinality explodes.
 4. **Admin token** stays server-side in the dashboard BFF.
 5. Stress **allowlist** + caps prevent open-proxy abuse (this is not a public load gun).
-6. Cloud AI quota is **per-user in Postgres** (`aiUsed`); Bachs webhook sets `plan=pro` (or env `IJNUT_PLAN=pro`).
+6. Cloud AI quota is **per-user** (`aiUsed`); chat memory in `ai_chat_message`; Bachs sets `plan=pro`.
 
 ## Scripts
 
@@ -184,4 +191,4 @@ Optional combined local file: [`.env.example`](./.env.example).
 
 ## Resume one-liner
 
-> Built API Observability Lite (IJNUT): drop-in request metrics (p95/errors per route), admin-secured TanStack Start dashboard with Gemini + agent reports, allowlisted stress testing, and a pay-or-self-host gate on Cloud AI/stress — load-tested redirect cache hit vs miss with real numbers.
+> Built API Observability Lite (IJNUT): drop-in request metrics (p95/errors per route), admin-secured TanStack Start dashboard with Cloud AI + chat memory (or BYO keys), allowlisted stress testing on your API — load-tested redirect cache hit vs miss with real numbers.

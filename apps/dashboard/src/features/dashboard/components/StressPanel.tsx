@@ -9,7 +9,6 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select } from '@/shared/components/ui/select';
 import { Button } from '@/shared/components/ui/button';
-import { UpgradeGate } from '@/features/ai/components/UpgradeGate';
 import { latencyTextClass } from '@/features/overview/lib/latency';
 
 type Compare = {
@@ -17,13 +16,10 @@ type Compare = {
   after?: RouteAggregate;
 } | null;
 
-type GateCta = { upgrade: string; selfHost: string };
-
 type Props = {
   demoApiBase: string;
   running: boolean;
   stressGate: string | null;
-  cta: GateCta;
   lastReport: StressReport | null;
   compare: Compare;
   onError: (message: string, title?: string) => void;
@@ -34,7 +30,6 @@ export function StressPanel({
   demoApiBase,
   running,
   stressGate,
-  cta,
   lastReport,
   compare,
   onError,
@@ -141,7 +136,11 @@ export function StressPanel({
         </div>
       </div>
 
-      {stressGate ? <UpgradeGate title="Stress limited" message={stressGate} cta={cta} /> : null}
+      {stressGate ? (
+        <p className="text-muted-foreground rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
+          {stressGate}
+        </p>
+      ) : null}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {useDemoApi ? (

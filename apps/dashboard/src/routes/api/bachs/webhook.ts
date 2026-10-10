@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { getApiUrl } from '@/shared/api/client.server';
+import { getCloudAiUrl } from '@/shared/api/client.server';
 
 /**
- * Optional BFF proxy — prefer pointing Bachs at the API:
- *   https://<demo-api>/api/bachs/webhook
+ * Optional BFF proxy — prefer pointing Bachs at the Cloud AI API:
+ *   https://<cloud-ai-api>/api/bachs/webhook
  * This forwards so an old dashboard webhook URL still works.
  */
 export const Route = createFileRoute('/api/bachs/webhook')({
@@ -23,7 +23,7 @@ export const Route = createFileRoute('/api/bachs/webhook')({
           if (v) headers.set(name, v);
         }
 
-        const upstream = await fetch(`${getApiUrl()}/api/bachs/webhook`, {
+        const upstream = await fetch(`${getCloudAiUrl()}/api/bachs/webhook`, {
           method: 'POST',
           headers,
           body: rawBody

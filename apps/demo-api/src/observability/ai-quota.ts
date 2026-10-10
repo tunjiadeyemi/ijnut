@@ -1,6 +1,7 @@
 /**
- * Server-authoritative AI access for cloud freemium.
- * Quota lives in the shared better-auth Postgres `user` table.
+ * Server-authoritative Cloud AI access (quota + auth).
+ * Metrics/stress are unrelated — they stay on the caller's local API.
+ * Quota lives in the better-auth Postgres `user` table.
  * Never throws — DB failures degrade to needsAuth / deny.
  */
 import { Pool } from "pg";

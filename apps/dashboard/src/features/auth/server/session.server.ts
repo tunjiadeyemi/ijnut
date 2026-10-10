@@ -9,7 +9,7 @@ import {
   getIjnutPlan,
   type IjnutPlan
 } from '@/features/config/server';
-import { getApiUrl, obsFetch } from '@/shared/api/client.server';
+import { cloudAiFetch, getCloudAiUrl } from '@/shared/api/client.server';
 
 export type PublicUser = {
   id: string;
@@ -51,7 +51,7 @@ export async function getSession(): Promise<AuthSession | null> {
     const cookie = request.headers.get('cookie');
     if (!cookie) return null;
 
-    const res = await fetch(`${getApiUrl()}/api/auth/get-session`, {
+    const res = await fetch(`${getCloudAiUrl()}/api/auth/get-session`, {
       method: 'GET',
       headers: {
         cookie,
@@ -95,7 +95,7 @@ export async function resolveAiAccess(
   }
 
   try {
-    const status = await obsFetch<{
+    const status = await cloudAiFetch<{
       authenticated: boolean;
       needsAuth: boolean;
       plan: IjnutPlan;

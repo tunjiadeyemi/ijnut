@@ -1,8 +1,8 @@
 /**
- * Reverse-proxy /api/auth/* → demo-api.
- * Browser talks only to the dashboard; auth + DB live on the API.
+ * Reverse-proxy /api/auth/* → Cloud AI host (or local API when unset).
+ * Browser talks only to the dashboard; auth + DB live on that API.
  */
-import { getApiUrl } from '@/shared/api/client.server';
+import { getCloudAiUrl } from '@/shared/api/client.server';
 
 function dashboardPublicOrigin(): string {
   return (
@@ -14,7 +14,7 @@ function dashboardPublicOrigin(): string {
 
 export async function proxyAuthRequest(request: Request): Promise<Response> {
   const incoming = new URL(request.url);
-  const target = `${getApiUrl()}${incoming.pathname}${incoming.search}`;
+  const target = `${getCloudAiUrl()}${incoming.pathname}${incoming.search}`;
   const publicOrigin = dashboardPublicOrigin();
   const publicUrl = new URL(publicOrigin);
 

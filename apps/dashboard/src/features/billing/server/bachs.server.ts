@@ -1,12 +1,12 @@
 /**
- * Bachs secrets live on demo-api. Dashboard only asks the API if billing is on
- * (for UpgradeGate) — checkout/portal/webhooks go through the API.
+ * Bachs secrets live on the Cloud AI API. Dashboard only asks if billing is on
+ * (for UpgradeGate) — checkout/portal/webhooks go through that host.
  */
-import { obsFetch } from '@/shared/api/client.server';
+import { cloudAiFetch } from '@/shared/api/client.server';
 
 export async function isBachsConfigured(): Promise<boolean> {
   try {
-    const status = await obsFetch<{ configured: boolean }>(
+    const status = await cloudAiFetch<{ configured: boolean }>(
       '/observability/billing/status'
     );
     return status.configured;

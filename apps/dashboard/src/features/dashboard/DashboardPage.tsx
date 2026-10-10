@@ -125,7 +125,7 @@ export function DashboardPage({
         };
         if (failed.status === 429) {
           setStressGate(
-            'Stress rate limit hit. On IJNUT Cloud free, wait a minute — or upgrade / self-host for higher caps.'
+            'Stress rate limit hit on your local API. Wait a minute, or raise STRESS_RATE_LIMIT_PER_MIN.'
           );
           toast.error('Too many stress tests. Wait about a minute.', 'Slow down');
         } else {
@@ -224,7 +224,6 @@ export function DashboardPage({
           demoApiBase={demoApiBase}
           running={running}
           stressGate={stressGate}
-          cta={initial.config.cta}
           lastReport={lastReport}
           compare={compare}
           onError={(message, title) => toast.error(message, title)}

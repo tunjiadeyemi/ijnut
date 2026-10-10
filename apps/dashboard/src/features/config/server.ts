@@ -1,6 +1,7 @@
 /**
  * IJNUT deployment mode + public API URL (server-only).
- * cloud = you host the API (gate Gemini/stress); selfhost = their box, their keys.
+ * cloud = Cloud AI sidecar (gated AI + memory + billing); metrics/stress stay on local API.
+ * selfhost = BYO AI keys on the same API as metrics.
  */
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
@@ -16,10 +17,10 @@ export const DEFAULT_GATE_CTA: {
   selfHost: string;
   signIn: string;
 } = {
-  upgrade: 'Subscribe on IJNUT Cloud for unlimited AI via Bachs.',
+  upgrade: 'Subscribe for unlimited Cloud AI + chat memory via Bachs.',
   selfHost:
-    'Or self-host: docker compose up --build, set GEMINI_API_KEY or COHERE_API_KEY on the API — no IJNUT fees.',
-  signIn: 'Sign in to unlock 3 free AI messages on Cloud.'
+    'Or self-host AI: run your API locally with GEMINI_API_KEY / COHERE_API_KEY and IJNUT_MODE=selfhost — no IJNUT fees.',
+  signIn: 'Sign in to use Cloud AI (chat memory; 3 free messages).'
 };
 
 export function getIjnutMode(): IjnutMode {

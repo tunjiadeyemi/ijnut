@@ -1,10 +1,10 @@
 import { createServerFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
 
-import { getApiUrl } from '@/shared/api/client.server';
+import { getCloudAiUrl } from '@/shared/api/client.server';
 
 /**
- * Auth state for UI. plan / aiRemaining come from the API — never client input.
+ * Auth state for UI. plan / aiRemaining come from Cloud AI — never client input.
  */
 export const getAuthState = createServerFn({ method: 'GET' }).handler(async () => {
   const {
@@ -19,8 +19,8 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(async () =
 
   let githubConfigured = Boolean(process.env.GITHUB_CLIENT_ID?.trim());
   try {
-    const { obsFetch } = await import('@/shared/api/client.server');
-    const cfg = await obsFetch<{ githubConfigured: boolean }>(
+    const { cloudAiFetch } = await import('@/shared/api/client.server');
+    const cfg = await cloudAiFetch<{ githubConfigured: boolean }>(
       '/observability/auth/config'
     );
     githubConfigured = cfg.githubConfigured;
@@ -46,7 +46,7 @@ export const logout = createServerFn({ method: 'POST' }).handler(async () => {
   try {
     const request = getRequest();
     const cookie = request.headers.get('cookie') ?? '';
-    await fetch(`${getApiUrl()}/api/auth/sign-out`, {
+    await fetch(`${getCloudAiUrl()}/api/auth/sign-out`, {
       method: 'POST',
       headers: {
         cookie,

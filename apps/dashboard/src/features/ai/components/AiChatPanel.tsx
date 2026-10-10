@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Bot, Gauge, Loader2, Send, Sparkles, Wrench } from 'lucide-react';
 
 import type { RequestRecord, StressReport } from '@/shared/api/types';
-import { askObservabilityAi, getAiStatus, type AiChatTurn } from '@/features/ai/functions';
+import {
+  askObservabilityAi,
+  getAiHistory,
+  getAiStatus,
+  type AiChatTurn
+} from '@/features/ai/functions';
 
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
@@ -29,7 +34,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
 
   useEffect(() => {
     void getAiStatus()
-      .then((s) => {
+      .then(async (s) => {
         setStatus(s);
         if (s.statusError) {
           setGateMessage(null);
@@ -37,10 +42,18 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         }
         if (s.needsAuth) {
           setGateMessage(s.cta.signIn);
-        } else if (s.gated && s.remaining === 0) {
+          return;
+        }
+        if (s.gated && s.remaining === 0) {
           setGateMessage(
-            `Free AI limit reached (${s.limit} messages). Subscribe or self-host with your own Gemini key.`
+            `Free AI limit reached (${s.limit} messages). Subscribe or self-host with your own API key.`
           );
+        }
+        if (s.authenticated) {
+          const hist = await getAiHistory();
+          if (hist.ok && hist.messages.length > 0) {
+            setMessages(hist.messages);
+          }
         }
       })
       .catch((err) =>
@@ -48,18 +61,18 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
           configured: null,
           mode: 'cloud',
           authenticated: false,
-          needsAuth: false,
+          needsAuth: true,
           plan: 'free',
-          gated: false,
+          gated: true,
           limit: null,
           remaining: null,
           aiUsed: 0,
           billingConfigured: false,
           cta: {
-            upgrade: 'Subscribe on IJNUT Cloud for unlimited AI via Bachs.',
+            upgrade: 'Subscribe for unlimited Cloud AI + chat memory via Bachs.',
             selfHost:
-              'Or self-host: docker compose up --build, set GEMINI_API_KEY or COHERE_API_KEY on the API — no IJNUT fees.',
-            signIn: 'Sign in to unlock 3 free AI messages on Cloud.'
+              'Or self-host AI: GEMINI_API_KEY / COHERE_API_KEY on your local API (IJNUT_MODE=selfhost).',
+            signIn: 'Sign in to use Cloud AI (chat memory; 3 free messages).'
           },
           statusError: err instanceof Error ? err.message : 'Could not load AI status'
         })
@@ -135,7 +148,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
         setStatus((prev) => (prev ? { ...prev, remaining: result.remaining } : prev));
         if (result.remaining === 0 && status?.gated) {
           setGateMessage(
-            `Free AI limit reached (${status.limit} messages). Subscribe or self-host with your own Gemini key.`
+            `Free AI limit reached (${status.limit} messages). Subscribe or self-host with your own API key.`
           );
         }
       }

@@ -129,9 +129,20 @@ export class ObservabilityController {
   }
 
   /**
-   * Gemini chat — enforced on the API.
-   * Requires ADMIN_TOKEN (dashboard BFF only). Cloud free also requires a valid
-   * better-auth session + increments user.aiUsed in Postgres.
+   * Persisted Cloud AI chat memory (requires session).
+   */
+  @Get("ai/history")
+  @UseGuards(AdminAuthGuard)
+  async aiHistory(
+    @Headers("x-ijnut-session-token") sessionToken?: string,
+  ) {
+    return this.ai.history(sessionToken);
+  }
+
+  /**
+   * AI chat — ADMIN_TOKEN (dashboard BFF). Cloud mode also requires a
+   * better-auth session, quota, and persists chat memory.
+   * Metrics context may be supplied in the body (local API → Cloud AI sidecar).
    */
   @Post("ai")
   @UseGuards(AdminAuthGuard)
@@ -167,15 +178,9 @@ export class ObservabilityController {
       process.env.DEMO_PUBLIC_URL,
     );
 
-    const mode = (process.env.IJNUT_MODE ?? "selfhost").toLowerCase();
-    const plan = (process.env.IJNUT_PLAN ?? "free").toLowerCase();
-    const cloudFree = mode === "cloud" && plan !== "pro";
-    const maxConnections = Number(
-      process.env.STRESS_MAX_CONNECTIONS ?? (cloudFree ? 20 : 100),
-    );
-    const maxDurationSec = Number(
-      process.env.STRESS_MAX_DURATION_SEC ?? (cloudFree ? 15 : 60),
-    );
+    // Stress always runs on the caller's API — no Cloud plan caps.
+    const maxConnections = Number(process.env.STRESS_MAX_CONNECTIONS ?? 100);
+    const maxDurationSec = Number(process.env.STRESS_MAX_DURATION_SEC ?? 60);
 
     try {
       const { report } = await runStress(body, this.store, {
