@@ -44,7 +44,7 @@ app.use("*", ijnut.middleware());
 app.route("/observability", ijnut.app());
 ```
 
-## Quick start (Express)
+## Quick start (Node.js / Express)
 
 ```ts
 import express from "express";
@@ -96,7 +96,7 @@ Integrate @ijnut/sdk into this Node API so the IJNUT dashboard can show metrics 
   - Registers global metrics middleware + `/observability` controller.
 - **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
   - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
-- **Express:** `createIjnut` from `@ijnut/sdk`
+- **Node.js / Express:** `createIjnut` from `@ijnut/sdk`
   - `app.use(ijnut.middleware())` early (before most routes).
   - `app.use("/observability", ijnut.router())`.
 
@@ -266,7 +266,7 @@ const user = await withSpan(
 |--------|---------|
 | `@ijnut/sdk/nest` | NestJS (`IjnutModule`) |
 | `@ijnut/sdk/hono` | Hono (`createIjnutHono`) |
-| `@ijnut/sdk` | Express (`createIjnut`) |
+| `@ijnut/sdk` | Node.js / Express (`createIjnut`) |
 
 ## Env
 

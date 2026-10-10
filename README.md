@@ -1,34 +1,91 @@
 # API Observability Lite (IJNUT)
 
-Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p95**, recent request log, admin-secured HTTP API, **TanStack Start** dashboard, and a **built-in stress runner** (autocannon) — wired to a NestJS URL shortener so metrics are real under load.
+Drop-in TypeScript observability for Node APIs: per-route count / error % / avg / **p95**, recent request log, service-key secured `/observability/*` HTTP API, **TanStack Start** dashboard, allowlisted **stress runner** (autocannon), and optional **Cloud AI** (explain requests, summarize load tests, suggest fixes).
 
-> Portfolio story: load-test redirect **cache hit vs miss**, surface 401/429 in metrics, paste an **agent report** into Cursor, and document bottlenecks with numbers in [`RESULTS.md`](./RESULTS.md).
+## Summary
 
-## Choose a path
+> **Steps (details below):**
+>
+> 1. **Quick start** — run the dashboard locally and point Cloud AI at the hosted API.
+> 2. **Instrument your backend** — install `@ijnut/sdk` middleware so metrics and stress run on *your* API (or use this repo’s demo API while you try the UI).
+> 3. **Wire the dashboard** — `OBSERVABILITY_API_URL` + `OBSERVABILITY_SERVICE_KEY` → your metrics API; `IJNUT_CLOUD_AI_URL` → Cloud AI.
+> 4. **Use it** — open the dashboard, generate traffic, run load tests, Ask / agent report.
 
-| Path | What you run | Who pays |
-|------|----------------|----------|
-| **Self-host** (default) | Local API + dashboard; BYO `GEMINI_API_KEY` / `COHERE_API_KEY` | You |
-| **Cloud AI** (optional) | Local API for metrics/stress + hosted Cloud AI for chat | Operator — gated AI + **chat memory**; subscribe or self-host AI |
-| **Cloud AI pro** | Same, after Bachs subscribe (`plan=pro`) | Operator (unlimited Cloud AI) |
+| Piece | Where it runs |
+|-------|----------------|
+| Metrics, stress, allowlist | **Your** API (or local `demo-api`) |
+| Dashboard UI | Local (or your deploy) |
+| Sign-in, gated Ask, chat memory | [Hosted Cloud AI](https://demo-api-production-b361.up.railway.app) (or self-host) |
 
-**Metrics, stress, and allowlists always run on your API** (`pnpm` / Docker). Cloud only sells authenticated AI (quota + persisted memory). Stress is never paywalled.
+Stress is never paywalled. Cloud AI is login-gated (free tier, then subscribe — or BYO keys in full self-host).
 
-## Features
+## Quick start (recommended: local + Cloud AI)
 
-- Request timing + `x-request-id` on every request
-- In-memory ring buffer + per-route aggregates (p95 from rolling samples)
-- `GET /observability/overview` & `/requests` behind admin auth
-- `POST /observability/stress` with **allowlist**, **caps**, and **rate limit (429)**
-- Demo URL shortener: Postgres source of truth, Redis cache, `X-Cache: HIT|MISS|BYPASS`
-- Dashboard open to guests; optional **better-auth** (email/password + GitHub + password reset)
-- BFF uses server `OBSERVABILITY_SERVICE_KEY` for `/observability/*` (never paste the service key in the UI)
-- Demo / Live base URL, custom methods, headers, body; calm 100svh metrics UI
-- Optional **Gemini chat** (explain requests, summarize load tests, suggest fixes)
-- **Agent report** — markdown snapshot you can copy into Cursor / any coding agent
-- Cloud AI: **3 lifetime messages** after sign-in + **persisted chat memory**, then subscribe CTA; self-host unlimited with BYO keys
+Run the **dashboard** (and optionally the demo API) on your machine. Use the hosted Cloud AI for sign-in and Ask:
+
+**Cloud AI API:** https://demo-api-production-b361.up.railway.app
+
+```bash
+pnpm install
+cp apps/dashboard/.env.example apps/dashboard/.env
+```
+
+In `apps/dashboard/.env`:
+
+```env
+# Metrics / stress — your instrumented API (or local demo-api on :3000)
+OBSERVABILITY_API_URL=http://127.0.0.1:3000
+OBSERVABILITY_SERVICE_KEY=replace-with-long-random-secret
+
+# Hosted Cloud AI (auth + Ask + memory)
+IJNUT_CLOUD_AI_URL=https://demo-api-production-b361.up.railway.app
+IJNUT_MODE=cloud
+
+BETTER_AUTH_URL=http://127.0.0.1:3001
+COOKIE_SECURE=false
+```
+
+You still need a metrics API with the middleware (step below). Fastest demo:
+
+```bash
+cp apps/demo-api/.env.example apps/demo-api/.env
+# Match OBSERVABILITY_SERVICE_KEY to the dashboard
+# IJNUT_MODE=selfhost on the local API (metrics only; AI goes to Cloud AI URL)
+pnpm docker:up
+pnpm --filter demo-api dev   # → :3000
+pnpm --filter dashboard dev  # → :3001
+```
+
+Open http://localhost:3001 — browse as a guest for metrics/stress. **Sign in** for Cloud AI (free messages + chat memory).
+
+> Without middleware on some backend, the dashboard has nothing to show. Use `demo-api` above, or install `@ijnut/sdk` on your own API next.
+
+### Optional: full self-host (no Cloud AI URL)
+
+```bash
+cp apps/demo-api/.env.example apps/demo-api/.env
+cp apps/dashboard/.env.example apps/dashboard/.env
+# Set GEMINI_API_KEY or COHERE_API_KEY (+ AI_PROVIDER) on the API for local Ask
+# Leave IJNUT_CLOUD_AI_URL unset; IJNUT_MODE=selfhost
+docker compose up --build
+# Dashboard http://localhost:3001 · API http://localhost:3000
+```
+
+```bash
+pnpm docker:up                 # Postgres + Redis only
+pnpm docker:stack              # full compose
+pnpm docker:down
+pnpm --filter dashboard auth:migrate   # better-auth tables (once)
+pnpm dev                       # API :3000 + dashboard :3001
+```
 
 ## Embed in your API (`@ijnut/sdk`)
+
+Install the middleware on the Node API you want to observe. Peers: NestJS, Express, or Hono — pick what your project uses.
+
+```bash
+pnpm add @ijnut/sdk
+```
 
 **NestJS:**
 
@@ -47,6 +104,26 @@ import { IjnutModule } from "@ijnut/sdk/nest";
 export class AppModule {}
 ```
 
+**Node.js (Express):**
+
+```ts
+import express from "express";
+import { createIjnut } from "@ijnut/sdk";
+
+const app = express();
+const ijnut = createIjnut({
+  serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
+  stressAllowlist: "127.0.0.1,localhost,your-api.example",
+});
+
+app.use(ijnut.middleware());
+app.use(express.json());
+app.use("/observability", ijnut.router());
+
+app.get("/ping", (_req, res) => res.json({ ok: true }));
+app.listen(3000);
+```
+
 **Hono:**
 
 ```ts
@@ -62,13 +139,11 @@ app.use("*", ijnut.middleware());
 app.route("/observability", ijnut.app());
 ```
 
-**Express:** `createIjnut` from `@ijnut/sdk` — see [`packages/sdk/README.md`](./packages/sdk/README.md).
-
-Then point the dashboard at your API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`).
+Point the dashboard at that API (`OBSERVABILITY_API_URL` + matching `OBSERVABILITY_SERVICE_KEY`). More detail: [`packages/sdk/README.md`](./packages/sdk/README.md).
 
 ### Paste into your AI agent
 
-Copy this into Cursor / Claude / ChatGPT in **your** backend repo to wire up the middleware:
+Copy this into Cursor / Claude / ChatGPT in **your** backend repo:
 
 ````md
 Integrate @ijnut/sdk into this Node API so the IJNUT dashboard can show metrics and run allowlisted load tests.
@@ -85,11 +160,11 @@ Integrate @ijnut/sdk into this Node API so the IJNUT dashboard can show metrics 
 ## Framework pick (use the one this repo uses)
 - **NestJS:** `IjnutModule.forRoot({...})` from `@ijnut/sdk/nest`
   - Registers global metrics middleware + `/observability` controller.
-- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
-  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
-- **Express:** `createIjnut` from `@ijnut/sdk`
+- **Node.js / Express:** `createIjnut` from `@ijnut/sdk`
   - `app.use(ijnut.middleware())` early (before most routes).
   - `app.use("/observability", ijnut.router())`.
+- **Hono:** `createIjnutHono` from `@ijnut/sdk/hono`
+  - `app.use("*", ijnut.middleware())` then `app.route("/observability", ijnut.app())`.
 
 ## Config
 - `serviceKey: process.env.OBSERVABILITY_SERVICE_KEY` (long random secret).
@@ -115,81 +190,32 @@ OBSERVABILITY_SERVICE_KEY=<same secret as on the API>
 Read npm docs for `@ijnut/sdk` if imports differ. Prefer minimal diffs; match this repo’s style.
 ````
 
+## Features
+
+- Request timing + `x-request-id` on every request
+- In-memory ring buffer + per-route aggregates (p95 from rolling samples)
+- `GET /observability/overview` & `/requests` behind service-key auth
+- `POST /observability/stress` with **allowlist**, **caps**, and **rate limit (429)**
+- Demo URL shortener: Postgres + Redis cache, `X-Cache: HIT|MISS|BYPASS`
+- Dashboard open to guests; optional **better-auth** (email/password + GitHub)
+- BFF keeps `OBSERVABILITY_SERVICE_KEY` server-side (never in the browser)
+- Optional AI chat + **agent report** (markdown snapshot for coding agents)
+- Cloud AI: free tier after sign-in + persisted chat memory; self-host unlimited with BYO keys
+
 ## Monorepo layout
 
 ```text
 api-observability-lite/
   apps/
-    demo-api/          NestJS shortener + observability routes + stress
+    demo-api/          NestJS shortener + observability + stress (+ optional Cloud AI host)
     dashboard/         TanStack Start UI (port 3001)
   packages/
-    sdk/               @ijnut/sdk — Express middleware + /observability router
+    sdk/               @ijnut/sdk — Nest / Express / Hono
     observability/     Core store, p95, stress runner, allowlist, rate limiter
   docker-compose.yml   Postgres + Redis + API + dashboard
 ```
 
-## Quickstart — self-host (recommended)
-
-```bash
-cp apps/demo-api/.env.example apps/demo-api/.env
-cp apps/dashboard/.env.example apps/dashboard/.env
-# or: cp .env.example .env  (combined local file)
-# set GEMINI_API_KEY or COHERE_API_KEY (+ AI_PROVIDER) on the API if you want AI
-docker compose up --build
-```
-
-| Service   | URL |
-|-----------|-----|
-| Dashboard | http://localhost:3001 |
-| Demo API  | http://localhost:3000 |
-| Health    | http://localhost:3000/health |
-
-Open the dashboard as a guest. Sign in (email or GitHub) only if you want Cloud AI. Obs API uses `OBSERVABILITY_SERVICE_KEY` on the server BFF (default `change-me`).
-
-```bash
-pnpm docker:down
-pnpm docker:stack              # compose up -d --build
-pnpm docker:up                 # Postgres + Redis only (for local pnpm dev)
-pnpm --filter dashboard auth:migrate   # better-auth tables (once)
-```
-
-### Local apps (infra in Docker)
-
-```bash
-pnpm install
-cp apps/demo-api/.env.example apps/demo-api/.env
-cp apps/dashboard/.env.example apps/dashboard/.env
-pnpm docker:up                 # postgres :5433 + redis :6379
-pnpm --filter dashboard auth:migrate   # once (or API auto-migrates on boot)
-pnpm dev
-# API → :3000   Dashboard → :3001
-```
-
-## Quickstart — Cloud AI + local API
-
-Run **your** API locally (metrics/stress/allowlist). Point the dashboard at a hosted Cloud AI API for sign-in, gated chat, and memory.
-
-```bash
-# Terminal A — local observability API
-cp apps/demo-api/.env.example apps/demo-api/.env
-# IJNUT_MODE=selfhost  (default) — no AI keys required if using Cloud AI
-pnpm docker:up && pnpm --filter demo-api dev
-
-# Terminal B — dashboard
-cp apps/dashboard/.env.example apps/dashboard/.env
-# OBSERVABILITY_API_URL=http://127.0.0.1:3000
-# OBSERVABILITY_SERVICE_KEY=<local metrics service key>
-# IJNUT_CLOUD_AI_URL=https://your-cloud-ai.up.railway.app
-# IJNUT_MODE=cloud
-# (no Cloud AI service key — sign in for trials / subscribe)
-pnpm --filter dashboard dev
-```
-
-Sign in for **3 free Cloud AI messages** (memory persists). Subscribe via Bachs for unlimited Cloud AI, or set keys on the local API with `IJNUT_MODE=selfhost` and omit `IJNUT_CLOUD_AI_URL`.
-
-**Cloud AI operators:** deploy demo-api with `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, OAuth, `GEMINI_API_KEY` or `COHERE_API_KEY`, and Bachs. AI/billing are login-gated for customers (no shared service key required on their dashboard).
-
-## Smoke checks (self-host)
+## Smoke checks
 
 ```bash
 curl -s http://127.0.0.1:3000/health
@@ -198,7 +224,7 @@ curl -s -o /dev/null -w '%{http_code}\n' \
   http://127.0.0.1:3000/observability/overview
 # → 401
 
-curl -s -H "Authorization: Bearer change-me" \
+curl -s -H "Authorization: Bearer $OBSERVABILITY_SERVICE_KEY" \
   http://127.0.0.1:3000/observability/overview | python3 -m json.tool
 
 curl -s -X POST http://127.0.0.1:3000/shorten \
@@ -212,16 +238,17 @@ curl -sI http://127.0.0.1:3000/<code>   # X-Cache: MISS then HIT
 ```text
 Browser (dashboard :3001)
   → TanStack Start server functions
-  → Demo API /observability/*  (auth → stress rate limit → handler)
+  → Metrics API /observability/*  (service key → stress rate limit → handler)
+  → optional Cloud AI host (session auth → Ask / billing)
 
 Browser / autocannon
-  → Demo API business routes
-        → observability middleware (requestId + timing on res.finish)
-        → handler (shorten / redirect)
+  → Your API business routes
+        → observability middleware (requestId + timing)
+        → handler
         → metrics recorded
 
-Stress runner (inside demo-api)
-  → hammers allowlisted target only
+Stress runner (inside the metrics API)
+  → hammers allowlisted targets only
 ```
 
 ## Env vars
@@ -235,36 +262,36 @@ Optional combined local file: [`.env.example`](./.env.example).
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `OBSERVABILITY_SERVICE_KEY` | Metrics API + Dashboard | Key for metrics/stress `/observability/*` (legacy: `ADMIN_TOKEN`) |
-| `OBSERVABILITY_API_URL` | Dashboard | Local API (metrics / stress) |
-| `IJNUT_CLOUD_AI_URL` | Dashboard | Optional Cloud AI host (auth / AI / billing); customers sign in |
-| `IJNUT_CLOUD_AI_SERVICE_KEY` | Dashboard | Optional; omit for login-only Cloud AI (split URL) |
-| `BETTER_AUTH_SECRET` | Cloud AI API | Signs session cookies (not a user password) |
+| `OBSERVABILITY_SERVICE_KEY` | Metrics API + Dashboard | Key for metrics/stress `/observability/*` |
+| `OBSERVABILITY_API_URL` | Dashboard | Metrics / stress API origin |
+| `IJNUT_CLOUD_AI_URL` | Dashboard | Cloud AI host (auth / AI / billing); sign in — no shared AI service key required |
+| `IJNUT_CLOUD_AI_SERVICE_KEY` | Dashboard | Optional; omit for login-only Cloud AI |
+| `BETTER_AUTH_SECRET` | Cloud AI API | Signs session cookies |
 | `BETTER_AUTH_URL` | Both | Public **dashboard** origin (OAuth + cookies) |
 | `DATABASE_URL` / `REDIS_URL` | API | Postgres + Redis |
-| `AI_PROVIDER` / `GEMINI_*` / `COHERE_*` | AI host | AI (`gemini` or `cohere`) |
+| `AI_PROVIDER` / `GEMINI_*` / `COHERE_*` | AI host | AI provider keys |
 | `BACHS_*` / `GITHUB_*` | Cloud AI API | Billing, OAuth |
-| `IJNUT_MODE` / `IJNUT_PLAN` | AI host (+ dashboard mode hint) | `cloud` gates AI; `selfhost` = BYO unlimited |
+| `IJNUT_MODE` / `IJNUT_PLAN` | AI host (+ dashboard hint) | `cloud` gates AI; `selfhost` = BYO unlimited |
 | `COOKIE_SECURE` | Dashboard | `true` only behind HTTPS |
 
-**Never** put the observability service key or auth secrets in `VITE_*`. `plan` / `aiRemaining` are authorized on the Cloud AI API only.
+**Never** put the observability service key or auth secrets in `VITE_*`.
 
-## Demo tips
+## Try the demo
 
-1. Dashboard (guest) → create a short code via Demo API, warm Redis, run stress → hit vs miss ([`RESULTS.md`](./RESULTS.md)).
-2. Stress twice quickly → **429** (local rate limit — raise `STRESS_RATE_LIMIT_PER_MIN`).
-3. Cloud AI: sign in → 3 messages + memory → panel dims → **Subscribe** ([Bachs](https://bachs.io/)) → webhook sets `plan=pro`.
-4. `DELETE /shorten/:code` with `x-api-key: demo-user` → **403**; missing key → **401**.
-5. **Agent report** → copy into Cursor and ask for a bottleneck write-up.
+1. Dashboard → generate traffic (or run stress) → routes / history update.
+2. Stress twice quickly → **429** (raise `STRESS_RATE_LIMIT_PER_MIN` if needed).
+3. Cloud AI: sign in → free messages + memory → subscribe via [Bachs](https://bachs.io/) for unlimited Ask (when configured).
+4. **Agent report** → copy into your coding agent for a bottleneck write-up.
+5. Example numbers from a local hit-vs-miss run: [`RESULTS.md`](./RESULTS.md).
 
 ## Tradeoffs (v1)
 
-1. **In-memory metrics** die on restart; multi-instance needs shared aggregation.
-2. **Stress colocated** with the API skews CPU — fine for portfolio; isolate the runner in production.
+1. **In-memory metrics** reset on process restart; multi-instance needs shared aggregation.
+2. **Stress colocated** with the API shares CPU — fine for demos; isolate the runner in production.
 3. **Route normalization** is required or cardinality explodes.
 4. **Observability service key** stays server-side in the dashboard BFF.
-5. Stress **allowlist** + caps prevent open-proxy abuse (this is not a public load gun).
-6. Cloud AI quota is **per-user** (`aiUsed`); chat memory in `ai_chat_message`; Bachs sets `plan=pro`.
+5. Stress **allowlist** + caps prevent open-proxy abuse.
+6. Cloud AI quota is **per-user**; chat memory is persisted on the AI host.
 
 ## Scripts
 
@@ -275,7 +302,3 @@ Optional combined local file: [`.env.example`](./.env.example).
 | `pnpm docker:down` | Tear down Compose |
 | `pnpm dev` | API + dashboard (local) |
 | `pnpm build` | Turbo build all packages |
-
-## Resume one-liner
-
-> Built API Observability Lite (IJNUT): drop-in request metrics (p95/errors per route), admin-secured TanStack Start dashboard with Cloud AI + chat memory (or BYO keys), allowlisted stress testing on your API — load-tested redirect cache hit vs miss with real numbers.
