@@ -26,11 +26,7 @@ import { StressPanel } from './components/StressPanel';
 import { useToast } from '@/shared/components/ui/toast';
 import { RequestHistory } from './components/RequestHistory';
 import { DashboardHeader } from './components/DashboardHeader';
-import {
-  MobileSidebar,
-  mobileSectionLabel,
-  type MobileSection
-} from './components/MobileSidebar';
+import { MobileSidebar, mobileSectionLabel, type MobileSection } from './components/MobileSidebar';
 import { AiChatPanel } from '@/features/ai/components/AiChatPanel';
 import { useIsDesktop } from './hooks/useIsDesktop';
 
@@ -65,9 +61,7 @@ export function DashboardPage({
   const [requests, setRequests] = useState<RequestRecord[]>(initialRequests);
   const [reports, setReports] = useState<StressReport[]>(initialReports);
   const [beforeSnap, setBeforeSnap] = useState<RouteAggregate[] | null>(null);
-  const [lastReport, setLastReport] = useState<StressReport | null>(
-    initialReports[0] ?? null
-  );
+  const [lastReport, setLastReport] = useState<StressReport | null>(initialReports[0] ?? null);
   const [running, setRunning] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showToolTraffic, setShowToolTraffic] = useState(false);
@@ -210,7 +204,13 @@ export function DashboardPage({
   }
 
   return (
-    <div className="mx-auto flex h-svh max-h-svh w-full max-w-[1600px] flex-col overflow-hidden px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 lg:pb-4">
+    <div
+      className={
+        isDesktop
+          ? 'mx-auto flex w-full max-w-[1600px] flex-col px-3 py-3 sm:px-6 sm:py-4 lg:h-svh lg:max-h-svh lg:overflow-hidden'
+          : 'mx-auto flex h-svh max-h-svh w-full max-w-[1600px] flex-col overflow-hidden px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4'
+      }
+    >
       <DashboardHeader
         overview={overview}
         requests={requests}
@@ -260,7 +260,7 @@ export function DashboardPage({
                   routes={visibleRoutes}
                   showToolTraffic={showToolTraffic}
                   onShowToolTrafficChange={setShowToolTraffic}
-                  className="min-h-full border-b-0 py-3"
+                  className="min-h-full border-b-0"
                 />
               </div>
             </div>
@@ -279,7 +279,8 @@ export function DashboardPage({
             <div className="min-h-0 flex-1 overflow-y-auto">
               <RequestHistory
                 requests={visibleRequests}
-                className="min-h-full border-b-0 py-3"
+                fillHeight
+                className="min-h-full border-b-0"
               />
             </div>
           ) : null}
@@ -293,7 +294,7 @@ export function DashboardPage({
                 lastReport={lastReport}
                 reports={reports}
                 compare={compare}
-                className="min-h-full py-3"
+                className="min-h-full"
                 onError={(message, title) => toast.error(message, title)}
                 onRun={onRunStress}
               />
@@ -301,16 +302,16 @@ export function DashboardPage({
           ) : null}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <>
           <KpiStrip total={kpis.total} errors={kpis.errors} worstP95={kpis.worst} />
 
-          <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)] overflow-hidden divide-x divide-border border-b border-border">
+          <div className="flex flex-col border-b border-border lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[1.35fr_0.9fr] lg:overflow-hidden lg:divide-x lg:divide-border">
             <RoutesPanel
               routes={visibleRoutes}
               showToolTraffic={showToolTraffic}
               onShowToolTrafficChange={setShowToolTraffic}
             />
-            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden py-4 pl-6 xl:pl-8">
+            <section className="flex min-h-[20rem] min-w-0 flex-col border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pl-8">
               <AiChatPanel
                 latestRequest={visibleRequests[0] ?? null}
                 latestStress={lastReport ?? reports[0] ?? null}
@@ -318,7 +319,7 @@ export function DashboardPage({
             </section>
           </div>
 
-          <div className="grid min-h-0 min-w-0 flex-[0.85] grid-cols-2 overflow-hidden divide-x divide-border">
+          <div className="flex flex-col pb-6 lg:grid lg:min-h-0 lg:flex-[0.85] lg:grid-cols-2 lg:overflow-hidden lg:divide-x lg:divide-border lg:pb-0">
             <RequestHistory requests={visibleRequests} />
             <StressPanel
               demoApiBase={demoApiBase}
@@ -331,7 +332,7 @@ export function DashboardPage({
               onRun={onRunStress}
             />
           </div>
-        </div>
+        </>
       )}
     </div>
   );

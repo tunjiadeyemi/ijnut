@@ -295,24 +295,24 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
       : null;
 
   return (
-    <Card className="relative flex h-full min-h-0 flex-col border-0 bg-transparent shadow-none">
-      <CardHeader className="flex flex-col gap-2 space-y-0 overflow-visible border-b border-border px-0 pb-3 pt-0">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <CardTitle className="flex min-w-0 items-center gap-2 text-sm font-medium">
-            <Bot className="text-primary size-4 shrink-0" />
-            Ask
-            {remainingLabel ? (
-              <span className="text-muted-foreground font-normal">· {remainingLabel}</span>
-            ) : null}
-          </CardTitle>
+    <Card className="relative flex h-full min-h-[18rem] flex-col border-0 bg-transparent shadow-none lg:min-h-0">
+      <CardHeader className="flex flex-col gap-2 space-y-0 border-b border-border px-0 pb-3 pt-0 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <Bot className="text-primary size-4 shrink-0" />
+          Ask
+          {remainingLabel ? (
+            <span className="text-muted-foreground font-normal">· {remainingLabel}</span>
+          ) : null}
+        </CardTitle>
+        <div className="-mx-1 flex max-w-full items-center gap-0.5 overflow-x-auto px-1">
           {showConversationControls && conversations.length > 0 ? (
-            <div className="flex min-w-0 flex-1 items-center gap-1 sm:max-w-[16rem] sm:flex-initial sm:ml-auto">
+            <>
               <Select
                 aria-label="Conversation"
                 mono={false}
                 size="sm"
                 disabled={pending || locked}
-                className="min-w-0 flex-1"
+                className="mr-1 w-[10rem] shrink-0 sm:w-[14rem]"
                 value={conversationId ?? conversations[0]?.id ?? ''}
                 options={conversations.map((c) => ({
                   value: c.id,
@@ -332,15 +332,13 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
                 <MessageSquarePlus className="size-3.5 shrink-0" />
                 <HoverIconLabel>New</HoverIconLabel>
               </Button>
-            </div>
+            </>
           ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-0.5">
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="group h-8 px-2"
+            className="group h-8 shrink-0 px-2"
             disabled={pending || locked || !latestRequest}
             aria-label="Explain"
             onClick={() =>
@@ -357,7 +355,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             type="button"
             size="sm"
             variant="ghost"
-            className="group h-8 px-2"
+            className="group h-8 shrink-0 px-2"
             disabled={pending || locked || !latestStress}
             aria-label="Summarize load"
             onClick={() =>
@@ -371,7 +369,7 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
             type="button"
             size="sm"
             variant="ghost"
-            className="group h-8 px-2"
+            className="group h-8 shrink-0 px-2"
             disabled={pending || locked}
             aria-label="Suggest fixes"
             onClick={() =>
@@ -417,8 +415,8 @@ export function AiChatPanel({ latestRequest, latestStress }: Props) {
                 key={`${m.role}-${i}`}
                 className={
                   m.role === 'user'
-                    ? 'ml-3 rounded-2xl bg-primary/10 px-3 py-2 text-sm sm:ml-6'
-                    : 'text-foreground/90 mr-2 min-w-0 space-y-2 text-sm leading-relaxed sm:mr-4'
+                    ? 'ml-6 rounded-2xl bg-primary/10 px-3 py-2 text-sm'
+                    : 'text-foreground/90 mr-4 space-y-2 text-sm leading-relaxed'
                 }
               >
                 {m.role === 'assistant' ? (

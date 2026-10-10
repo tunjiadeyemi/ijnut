@@ -34,7 +34,7 @@ export function RoutesPanel({
   return (
     <section
       className={cn(
-        'flex min-h-[16rem] min-w-0 flex-col gap-3 border-b border-border py-3 sm:min-h-[20rem] sm:py-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:pr-6 xl:pr-8',
+        'flex min-h-[22rem] min-w-0 flex-col gap-3 border-b border-border py-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:pr-8',
         className
       )}
     >
@@ -60,8 +60,8 @@ export function RoutesPanel({
           <div className="shrink-0 border-b border-border pb-3">
             <OverviewCharts routes={routes} />
           </div>
-          <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
-            <Table className="min-w-[20rem]">
+          <div className="min-h-0 flex-1 overflow-auto">
+            <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-0">Route</TableHead>
@@ -73,7 +73,7 @@ export function RoutesPanel({
               <TableBody>
                 {routes.map((r) => (
                   <TableRow key={r.key} className="hover:bg-transparent">
-                    <TableCell className="max-w-[10rem] truncate pl-0 font-mono text-xs sm:max-w-[14rem]">
+                    <TableCell className="max-w-[14rem] truncate pl-0 font-mono text-xs">
                       {r.key}
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums">{r.count}</TableCell>

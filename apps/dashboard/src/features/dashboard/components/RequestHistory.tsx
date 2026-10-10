@@ -13,6 +13,8 @@ import { cn } from '@/shared/lib/utils';
 type Props = {
   requests: RequestRecord[];
   className?: string;
+  /** Use full available height (mobile section view). */
+  fillHeight?: boolean;
 };
 
 function spanSummary(spans: RequestSpan[] | undefined): string | null {
@@ -52,13 +54,13 @@ function SpanBreakdown({ spans }: { spans: RequestSpan[] }) {
   );
 }
 
-export function RequestHistory({ requests, className }: Props) {
+export function RequestHistory({ requests, className, fillHeight }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <section
       className={cn(
-        'flex min-h-[14rem] min-w-0 flex-col gap-2 border-b border-border py-3 sm:min-h-[16rem] sm:py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-6 xl:pr-8',
+        'flex min-h-[16rem] min-w-0 flex-col gap-2 border-b border-border py-4 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:pr-8',
         className
       )}
     >
@@ -71,8 +73,13 @@ export function RequestHistory({ requests, className }: Props) {
           className="flex-1"
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto max-h-none lg:max-h-none">
-          <Table className="min-w-[16rem]">
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-auto',
+            fillHeight ? 'max-h-none' : 'max-h-64 lg:max-h-none'
+          )}
+        >
+          <Table>
             <TableBody>
               {requests.slice(0, 20).map((r) => {
                 const rowKey = r.requestId + r.timestamp;
@@ -101,7 +108,7 @@ export function RequestHistory({ requests, className }: Props) {
                           {r.statusCode}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[8rem] sm:max-w-[12rem]">
+                      <TableCell className="max-w-[10rem]">
                         <div className="truncate font-mono text-xs">{r.path}</div>
                         {summary ? (
                           <div className="text-muted-foreground truncate text-[10px]">

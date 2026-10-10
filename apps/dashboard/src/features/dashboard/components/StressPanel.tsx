@@ -116,7 +116,7 @@ export function StressPanel({
   return (
     <section
       className={cn(
-        'flex min-h-[14rem] min-w-0 flex-col gap-2 py-3 sm:py-4 lg:min-h-0 lg:overflow-y-auto lg:pl-6 xl:pl-8',
+        'flex min-w-0 flex-col gap-2 py-4 lg:min-h-0 lg:overflow-y-auto lg:pl-8',
         className
       )}
     >
@@ -125,7 +125,7 @@ export function StressPanel({
         <div
           role="radiogroup"
           aria-label="Target"
-          className="border-border flex shrink-0 rounded-md border p-0.5 text-xs"
+          className="border-border flex rounded-md border p-0.5 text-xs"
         >
           <button
             type="button"
@@ -180,8 +180,8 @@ export function StressPanel({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-[1.4fr_5.5rem_1fr]">
-              <div className="space-y-1 min-[480px]:col-span-2 lg:col-span-1">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_5.5rem_1fr]">
+              <div className="space-y-1">
                 <Label htmlFor="target" className="text-xs">
                   Base URL
                 </Label>
@@ -257,7 +257,7 @@ export function StressPanel({
         )}
 
         <div className="flex flex-wrap items-end gap-3">
-          <div className="w-[calc(50%-0.375rem)] min-w-[5rem] space-y-1 sm:w-20">
+          <div className="w-20 space-y-1">
             <Label htmlFor="connections" className="text-xs">
               Users
             </Label>
@@ -272,7 +272,7 @@ export function StressPanel({
               className="h-9"
             />
           </div>
-          <div className="w-[calc(50%-0.375rem)] min-w-[5rem] space-y-1 sm:w-20">
+          <div className="w-20 space-y-1">
             <Label htmlFor="duration" className="text-xs">
               Sec
             </Label>
@@ -287,12 +287,7 @@ export function StressPanel({
               className="h-9"
             />
           </div>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={running}
-            className="h-9 w-full sm:w-auto sm:min-w-[5.5rem]"
-          >
+          <Button type="submit" size="sm" disabled={running} className="h-9">
             {running ? <Loader2 className="animate-spin" /> : <Play className="size-3.5" />}
             Run
           </Button>
