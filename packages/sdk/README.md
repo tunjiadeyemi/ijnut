@@ -171,6 +171,27 @@ addSpan({
 
 If spans are empty, the helper ran **outside** a request (no middleware context), or you never called `tracedQuery` / `withSpan`.
 
+### Tip: ORMs (Prisma, Drizzle, …)
+
+`tracedQuery` expects a driver-style `query(sql, params)` (e.g. node-postgres). Most ORMs don’t expose that on every call, so:
+
+1. **Wrap ORM calls with `withSpan`** — timing + model/op in `meta` (no SQL text):
+
+```ts
+const user = await withSpan(
+  "db.user.findUnique",
+  "db",
+  () => prisma.user.findUnique({ where: { id } }),
+  { model: "User", op: "findUnique" },
+);
+```
+
+2. **Raw SQL** — keep using `tracedQuery(pool, …)` (or `withSpan` around `$queryRaw`).
+
+3. **Drizzle / Kysely on a `pg` Pool** — wrap `pool.query` once with `addSpan` + `normalizeSql` / `inferSqlOp` (or route through `tracedQuery`) before `drizzle(pool)`, so generated SQL is recorded automatically.
+
+4. **Prisma SQL text** — use Prisma query events / logging (`$on("query")`) and `addSpan({ type: "db", meta: { sql } })`; don’t expect `tracedQuery` on the Prisma client itself.
+
 ## Quick start (NestJS)
 
 ```ts

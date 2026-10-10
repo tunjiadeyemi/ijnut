@@ -62,13 +62,20 @@ export function getObsAdminToken(): string | undefined {
   return getObservabilityServiceKey();
 }
 
-/** Service key for Cloud AI host (may match local). */
+/**
+ * Service key for Cloud AI host.
+ * - Explicit IJNUT_CLOUD_AI_SERVICE_KEY if set (optional; rare for customers).
+ * - Same-host setup: fall back to OBSERVABILITY_SERVICE_KEY.
+ * - Split Cloud AI URL: do NOT send the metrics key (wrong key → 401). Cloud mode
+ *   allows login-only access without a service key.
+ */
 export function getCloudAiServiceKey(): string | undefined {
-  return (
+  const explicit =
     process.env.IJNUT_CLOUD_AI_SERVICE_KEY?.trim() ||
-    process.env.IJNUT_CLOUD_AI_ADMIN_TOKEN?.trim() || // legacy
-    getObservabilityServiceKey()
-  );
+    process.env.IJNUT_CLOUD_AI_ADMIN_TOKEN?.trim();
+  if (explicit) return explicit;
+  if (usesSplitCloudAi()) return undefined;
+  return getObservabilityServiceKey();
 }
 
 async function apiFetch<T>(
@@ -76,9 +83,11 @@ async function apiFetch<T>(
   adminToken: string | undefined,
   path: string,
   init: RequestInit = {},
-  missingTokenMessage: string
+  missingTokenMessage: string,
+  /** When true, allow calls with no service key (Cloud AI login-gated routes). */
+  allowMissingToken = false
 ): Promise<T> {
-  if (!adminToken) {
+  if (!adminToken && !allowMissingToken) {
     const err = new Error(missingTokenMessage) as Error & { status?: number };
     err.status = 500;
     throw err;
@@ -88,7 +97,7 @@ async function apiFetch<T>(
     ...init,
     headers: {
       Accept: 'application/json',
-      Authorization: `Bearer ${adminToken}`,
+      ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       ...init.headers
     }
@@ -132,7 +141,10 @@ export async function obsFetch<T>(path: string, init: RequestInit = {}): Promise
   );
 }
 
-/** Auth-adjacent AI + billing on the Cloud AI host (or local when unset). */
+/**
+ * AI + billing on the Cloud AI host (or local when unset).
+ * Service key optional in cloud mode — login/session gates access on the API.
+ */
 export async function cloudAiFetch<T>(
   path: string,
   init: RequestInit = {}
@@ -142,6 +154,7 @@ export async function cloudAiFetch<T>(
     getCloudAiServiceKey(),
     path,
     init,
-    'IJNUT_CLOUD_AI_SERVICE_KEY or OBSERVABILITY_SERVICE_KEY is not configured'
+    'IJNUT_CLOUD_AI_SERVICE_KEY or OBSERVABILITY_SERVICE_KEY is not configured',
+    true
   );
 }

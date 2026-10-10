@@ -20,6 +20,7 @@ import {
 } from "@api-obs/observability";
 import { isGithubAuthConfigured } from "../auth/auth";
 import { AdminAuthGuard } from "./admin-auth.guard";
+import { CloudAiGatewayGuard } from "./cloud-ai-gateway.guard";
 import { AiService, type AiChatBody } from "./ai.service";
 import { METRICS_STORE } from "./metrics.token";
 import { StressRateLimitGuard } from "./stress-rate-limit.guard";
@@ -39,7 +40,7 @@ export class ObservabilityController {
 
   /** Auth feature flags for the dashboard BFF (no secrets). */
   @Get("auth/config")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   authConfig() {
     return { githubConfigured: isGithubAuthConfigured() };
   }
@@ -100,11 +101,11 @@ export class ObservabilityController {
   }
 
   /**
-   * AI status — observability service key required so a public API URL alone cannot probe AI.
-   * Cloud quota uses better-auth session token (X-Ijnut-Session-Token).
+   * AI status — cloud mode is login/quota gated; selfhost still uses the service key.
+   * Session: X-Ijnut-Session-Token.
    */
   @Get("ai/status")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async aiStatus(
     @Headers("x-ijnut-session-token") sessionToken?: string,
   ) {
@@ -132,7 +133,7 @@ export class ObservabilityController {
    * List Cloud AI conversations for the signed-in user + apiScope bucket.
    */
   @Get("ai/conversations")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async aiConversations(
     @Headers("x-ijnut-session-token") sessionToken?: string,
     @Query("apiScope") apiScope?: string,
@@ -144,7 +145,7 @@ export class ObservabilityController {
    * Start a new empty conversation in the given apiScope bucket.
    */
   @Post("ai/conversations")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async aiCreateConversation(
     @Headers("x-ijnut-session-token") sessionToken?: string,
     @Body() body?: { apiScope?: string },
@@ -156,7 +157,7 @@ export class ObservabilityController {
    * Persisted Cloud AI chat memory for one conversation (requires session).
    */
   @Get("ai/history")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async aiHistory(
     @Headers("x-ijnut-session-token") sessionToken?: string,
     @Query("conversationId") conversationId?: string,
@@ -166,12 +167,11 @@ export class ObservabilityController {
   }
 
   /**
-   * AI chat — observability service key (dashboard BFF). Cloud mode also requires a
-   * better-auth session, quota, and persists chat memory.
+   * AI chat — cloud: sign-in + quota + memory; selfhost: service key + BYO provider.
    * Metrics context may be supplied in the body (local API → Cloud AI sidecar).
    */
   @Post("ai")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async askAi(
     @Body() body: AiChatBody,
     @Headers("x-ijnut-session-token") sessionToken?: string,

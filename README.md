@@ -115,16 +115,16 @@ pnpm docker:up && pnpm --filter demo-api dev
 # Terminal B — dashboard
 cp apps/dashboard/.env.example apps/dashboard/.env
 # OBSERVABILITY_API_URL=http://127.0.0.1:3000
+# OBSERVABILITY_SERVICE_KEY=<local metrics service key>
 # IJNUT_CLOUD_AI_URL=https://your-cloud-ai.up.railway.app
-# IJNUT_CLOUD_AI_SERVICE_KEY=<Cloud AI OBSERVABILITY_SERVICE_KEY>
-# OBSERVABILITY_SERVICE_KEY=<local service key>
 # IJNUT_MODE=cloud
+# (no Cloud AI service key — sign in for trials / subscribe)
 pnpm --filter dashboard dev
 ```
 
 Sign in for **3 free Cloud AI messages** (memory persists). Subscribe via Bachs for unlimited Cloud AI, or set keys on the local API with `IJNUT_MODE=selfhost` and omit `IJNUT_CLOUD_AI_URL`.
 
-**Cloud AI operators:** deploy demo-api with `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, OAuth, `GEMINI_API_KEY` or `COHERE_API_KEY`, and Bachs. Keep `STRESS_ALLOWLIST` tight on that host if you expose stress at all.
+**Cloud AI operators:** deploy demo-api with `IJNUT_MODE=cloud`, `BETTER_AUTH_SECRET`, OAuth, `GEMINI_API_KEY` or `COHERE_API_KEY`, and Bachs. AI/billing are login-gated for customers (no shared service key required on their dashboard).
 
 ## Smoke checks (self-host)
 
@@ -172,10 +172,10 @@ Optional combined local file: [`.env.example`](./.env.example).
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `OBSERVABILITY_SERVICE_KEY` | API + Dashboard | Shared key for `/observability/*` (legacy: `ADMIN_TOKEN`) |
+| `OBSERVABILITY_SERVICE_KEY` | Metrics API + Dashboard | Key for metrics/stress `/observability/*` (legacy: `ADMIN_TOKEN`) |
 | `OBSERVABILITY_API_URL` | Dashboard | Local API (metrics / stress) |
-| `IJNUT_CLOUD_AI_URL` | Dashboard | Optional Cloud AI host (auth / AI / billing) |
-| `IJNUT_CLOUD_AI_SERVICE_KEY` | Dashboard | Cloud AI service key if different from local |
+| `IJNUT_CLOUD_AI_URL` | Dashboard | Optional Cloud AI host (auth / AI / billing); customers sign in |
+| `IJNUT_CLOUD_AI_SERVICE_KEY` | Dashboard | Optional; omit for login-only Cloud AI (split URL) |
 | `BETTER_AUTH_SECRET` | Cloud AI API | Signs session cookies (not a user password) |
 | `BETTER_AUTH_URL` | Both | Public **dashboard** origin (OAuth + cookies) |
 | `DATABASE_URL` / `REDIS_URL` | API | Postgres + Redis |

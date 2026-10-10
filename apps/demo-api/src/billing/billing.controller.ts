@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { AdminAuthGuard } from "../observability/admin-auth.guard";
+import { CloudAiGatewayGuard } from "../observability/cloud-ai-gateway.guard";
 import {
   assertSafeBillingReturnTo,
   createCustomerPortalSession,
@@ -41,13 +42,13 @@ export class BillingController {
   }
 
   @Get("status")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   status() {
     return { configured: isBachsConfigured() };
   }
 
   @Get("me")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async me(@Headers("x-ijnut-session-token") sessionToken?: string) {
     const user = await resolveSessionUser(sessionToken);
     if (!user) {
@@ -58,7 +59,7 @@ export class BillingController {
   }
 
   @Post("checkout")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async checkout(
     @Headers("x-ijnut-session-token") sessionToken?: string,
     @Body() body?: { returnOrigin?: string },
@@ -94,7 +95,7 @@ export class BillingController {
   }
 
   @Post("portal")
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(CloudAiGatewayGuard)
   async portal(
     @Headers("x-ijnut-session-token") sessionToken?: string,
     @Body() body?: { returnOrigin?: string },
