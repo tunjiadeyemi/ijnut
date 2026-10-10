@@ -336,18 +336,9 @@ export class AiService {
       }
     }
 
-    const messages: ChatMessage[] = [
-      { role: "system", content: AI_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Live metrics context (JSON):\n${JSON.stringify(context)}\n\n${focusNote}`,
-      },
-      ...history.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-      { role: "user", content: message },
-    ];
+    // Keep metrics in system (not a user turn). Cohere rejects consecutive
+    // same-role messages — common when context was a user turn + history.
+    const messages = this.buildChatMessages(context, focusNote, history, message);
 
     try {
       const reply = await chatWithAi(messages);
@@ -432,6 +423,47 @@ export class AiService {
       return "User wants practical fix and system-design suggestions based on the metrics below. Prioritize slowQueries / repeatedSql (N+1), then route p95 and errors. Suggest indexes, caching, batching, or schema changes only when evidence supports them. End with an ## Agent brief section the user can copy for their coding agent. Do not offer to implement the changes yourself.";
     }
     return "";
+  }
+
+  /** Build provider messages with alternating user/assistant turns (Cohere-safe). */
+  private buildChatMessages(
+    context: ReturnType<AiService["buildContext"]>,
+    focusNote: string,
+    history: Array<{ role: string; content: string }>,
+    message: string,
+  ): ChatMessage[] {
+    const systemParts = [
+      AI_SYSTEM_PROMPT,
+      `Live metrics context (JSON):\n${JSON.stringify(context)}`,
+    ];
+    if (focusNote.trim()) systemParts.push(focusNote.trim());
+
+    const turns: Array<{ role: "user" | "assistant"; content: string }> = [];
+    for (const m of history) {
+      if (m.role !== "user" && m.role !== "assistant") continue;
+      const content = m.content?.trim();
+      if (!content) continue;
+      const last = turns[turns.length - 1];
+      if (last && last.role === m.role) {
+        last.content = `${last.content}\n\n${content}`;
+      } else {
+        turns.push({ role: m.role, content });
+      }
+    }
+
+    // Drop a leading assistant turn (providers expect user to start).
+    while (turns.length > 0 && turns[0].role === "assistant") {
+      turns.shift();
+    }
+
+    const last = turns[turns.length - 1];
+    if (last?.role === "user") {
+      last.content = `${last.content}\n\n${message}`;
+    } else {
+      turns.push({ role: "user", content: message });
+    }
+
+    return [{ role: "system", content: systemParts.join("\n\n") }, ...turns];
   }
 }
 
