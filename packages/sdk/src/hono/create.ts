@@ -16,7 +16,7 @@ export type IjnutHonoInstance = {
 };
 
 /**
- * IJNUT for Hono (Node). Use this on elioe / any Hono API.
+ * IJNUT for Hono (Node).
  *
  * @example
  * ```ts
@@ -26,7 +26,7 @@ export type IjnutHonoInstance = {
  * const app = new Hono();
  * const ijnut = createIjnutHono({
  *   serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
- *   stressAllowlist: 'elioe.tech,127.0.0.1,localhost',
+ *   stressAllowlist: '127.0.0.1,localhost,your-api.example',
  * });
  *
  * app.use('*', ijnut.middleware());

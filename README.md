@@ -30,7 +30,7 @@ Drop-in TypeScript observability for APIs: per-route count / error % / avg / **p
 
 ## Embed in your API (`@ijnut/sdk`)
 
-**Hono** (elioe / Node):
+**Hono:**
 
 ```ts
 import { Hono } from "hono";
@@ -39,7 +39,7 @@ import { createIjnutHono } from "@ijnut/sdk/hono";
 const app = new Hono();
 const ijnut = createIjnutHono({
   serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
-  stressAllowlist: "elioe.tech,127.0.0.1,localhost",
+  stressAllowlist: "127.0.0.1,localhost,your-api.example",
 });
 app.use("*", ijnut.middleware());
 app.route("/observability", ijnut.app());

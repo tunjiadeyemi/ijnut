@@ -45,7 +45,7 @@ export type IjnutInstance = {
  * const app = express();
  * const ijnut = createIjnut({
  *   serviceKey: process.env.OBSERVABILITY_SERVICE_KEY,
- *   stressAllowlist: '127.0.0.1,localhost,elioe.tech',
+ *   stressAllowlist: '127.0.0.1,localhost,your-api.example',
  * });
  *
  * app.use(ijnut.middleware());
